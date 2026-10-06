@@ -1,0 +1,2581 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; manifest-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta name="description" content="TrackMyTime - a simple office-hours tracker by Nikkhil Deshmukkh. Your hours stay on your own laptop.">
+<meta name="theme-color" content="#ffffff">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>TrackMyTime</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%232a78d6'/%3E%3Cpath d='M16 7v9h7' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f6f7f9;--surface:#ffffff;--surface-2:#f2f4f7;--surface-3:#e9ecf1;
+  --border:#e4e7ec;--border-strong:#d0d5dd;
+  --text:#101828;--text-2:#475467;--text-3:#667085;
+  --primary:#101828;--primary-text:#ffffff;--primary-hover:#344054;
+  --link:#1d63c4;--focus:#2a78d6;
+  --work:#2a78d6;--break:#eb6834;--lunch:#1baf7a;--away:#a3abb8;
+  --good:#067647;--good-bg:#ecfdf3;--bad:#b42318;--bad-bg:#fef3f2;
+  --warn-bg:#fffaeb;--warn-border:#fedf89;--warn-text:#93370d;
+  --grid:#eaecf0;--target:#344054;
+  --shadow:0 1px 2px rgba(16,24,40,.05);
+  --shadow-lg:0 12px 32px -8px rgba(16,24,40,.22),0 4px 8px -4px rgba(16,24,40,.08);
+  --radius:12px;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0c111d;--surface:#151a25;--surface-2:#1d2330;--surface-3:#272e3c;
+    --border:#262d3a;--border-strong:#363f4f;
+    --text:#f5f5f6;--text-2:#cecfd2;--text-3:#94969c;
+    --primary:#f5f5f6;--primary-text:#0c111d;--primary-hover:#d0d5dd;
+    --link:#6aa5f0;--focus:#6aa5f0;
+    --work:#3987e5;--break:#d95926;--lunch:#199e70;--away:#5d6676;
+    --good:#47cd89;--good-bg:rgba(71,205,137,.12);--bad:#f97066;--bad-bg:rgba(249,112,102,.12);
+    --warn-bg:rgba(253,176,34,.09);--warn-border:rgba(253,176,34,.32);--warn-text:#fec84b;
+    --grid:#232a36;--target:#cecfd2;
+    --shadow:0 1px 2px rgba(0,0,0,.3);
+    --shadow-lg:0 16px 40px -8px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0c111d;--surface:#151a25;--surface-2:#1d2330;--surface-3:#272e3c;
+  --border:#262d3a;--border-strong:#363f4f;
+  --text:#f5f5f6;--text-2:#cecfd2;--text-3:#94969c;
+  --primary:#f5f5f6;--primary-text:#0c111d;--primary-hover:#d0d5dd;
+  --link:#6aa5f0;--focus:#6aa5f0;
+  --work:#3987e5;--break:#d95926;--lunch:#199e70;--away:#5d6676;
+  --good:#47cd89;--good-bg:rgba(71,205,137,.12);--bad:#f97066;--bad-bg:rgba(249,112,102,.12);
+  --warn-bg:rgba(253,176,34,.09);--warn-border:rgba(253,176,34,.32);--warn-text:#fec84b;
+  --grid:#232a36;--target:#cecfd2;
+  --shadow:0 1px 2px rgba(0,0,0,.3);
+  --shadow-lg:0 16px 40px -8px rgba(0,0,0,.6);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 "Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--link)}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+h1,h2,h3,h4{margin:0;letter-spacing:-.01em;line-height:1.25}
+h2{font-size:20px;font-weight:650}
+h3{font-size:15px;font-weight:650}
+p{margin:0}
+.muted{color:var(--text-3)}
+.small{font-size:12.5px}
+.strong{font-weight:650;color:var(--text)}
+.good{color:var(--good)}
+.bad{color:var(--bad)}
+.nowrap{white-space:nowrap}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* ---------- top bar ---------- */
+.top{position:sticky;top:0;z-index:30;background:var(--surface);border-bottom:1px solid var(--border)}
+.top-in{max-width:1180px;margin:0 auto;padding:0 24px;height:60px;display:flex;align-items:center;gap:28px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:650;font-size:15px;white-space:nowrap}
+.brand-txt{display:flex;flex-direction:column;line-height:1.2}
+.brand-txt small{font-size:11.5px;font-weight:500;color:var(--text-3);letter-spacing:.01em}
+.credit{max-width:1180px;margin:0 auto;padding:0 24px 28px;text-align:center;color:var(--text-3);font-size:12px}
+.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;min-width:0}
+.tabs::-webkit-scrollbar{display:none}
+.tabs a{padding:7px 12px;border-radius:8px;color:var(--text-2);text-decoration:none;font-weight:560;white-space:nowrap}
+.tabs a:hover{background:var(--surface-2);color:var(--text)}
+.tabs a[aria-current="page"]{background:var(--surface-3);color:var(--text)}
+.tabs .sm{display:none}
+.live{margin-left:auto;display:flex;align-items:center;gap:8px;font-weight:560;color:var(--text-2);white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--away);flex:none;display:inline-block}
+.dot.k-Work{background:var(--work)}.dot.k-Lunch{background:var(--lunch)}.dot.k-Break{background:var(--break)}.dot.k-Away,.dot.k-Off{background:var(--away)}
+.live .dot.pulse{box-shadow:0 0 0 0 currentColor;animation:pulse 2.4s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(42,120,214,.45)}70%{box-shadow:0 0 0 7px rgba(42,120,214,0)}100%{box-shadow:0 0 0 0 rgba(42,120,214,0)}}
+@media (prefers-reduced-motion:reduce){.live .dot.pulse{animation:none}}
+
+main{max-width:1180px;margin:0 auto;padding:24px 24px 48px}
+.page-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap}
+.page-head p{color:var(--text-3);margin-top:2px}
+
+/* ---------- cards ---------- */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);min-width:0}
+.card+.card{margin-top:20px}
+.grid-2>.card+.card,.grid-today>.card+.card{margin-top:0}
+.pad{padding:20px}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px 0}
+.card-head .sub{color:var(--text-3);font-size:13px}
+.card-body{padding:14px 20px 20px}
+
+/* ---------- buttons & inputs ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:38px;padding:0 16px;border-radius:9px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);font-weight:600;cursor:pointer;transition:background-color .15s,border-color .15s,color .15s;white-space:nowrap;text-decoration:none}
+.btn:hover{background:var(--surface-2)}
+.btn:active{transform:translateY(.5px)}
+.btn-primary{background:var(--primary);border-color:var(--primary);color:var(--primary-text)}
+.btn-primary:hover{background:var(--primary-hover);border-color:var(--primary-hover)}
+.btn-lg{height:46px;padding:0 22px;font-size:15px;border-radius:10px}
+.btn-sm{height:30px;padding:0 11px;font-size:13px;border-radius:7px}
+.btn-ghost{border-color:transparent;background:transparent;color:var(--text-2)}
+.btn-ghost:hover{background:var(--surface-2);color:var(--text)}
+.btn-danger{color:var(--bad)}
+.btn-icon{width:32px;padding:0}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn svg{flex:none}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.spacer{flex:1}
+label.field{display:flex;flex-direction:column;gap:6px;font-weight:560;font-size:13px;color:var(--text-2)}
+.input,select.input,textarea.input{height:38px;border:1px solid var(--border-strong);border-radius:9px;background:var(--surface);padding:0 11px;color:var(--text);min-width:0}
+textarea.input{width:100%;height:auto;padding:10px 12px;line-height:1.5;resize:vertical;font-family:inherit}
+.input:focus{outline:2px solid var(--focus);outline-offset:-1px;border-color:transparent}
+.hint{font-size:12.5px;color:var(--text-3);font-weight:400}
+
+.seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;height:30px;padding:0 12px;border-radius:7px;font-weight:600;color:var(--text-2);cursor:pointer;white-space:nowrap}
+.seg button:hover{color:var(--text)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(16,24,40,.12)}
+
+.switch{display:flex;align-items:flex-start;gap:12px;cursor:pointer;padding:12px 0}
+.switch+.switch{border-top:1px solid var(--border)}
+.switch input{position:absolute;opacity:0;width:1px;height:1px}
+.switch .track{flex:none;width:38px;height:22px;border-radius:11px;background:var(--surface-3);border:1px solid var(--border-strong);position:relative;transition:background-color .15s;margin-top:1px}
+.switch .track::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
+.switch input:checked+.track{background:var(--work);border-color:var(--work)}
+.switch input:checked+.track::after{transform:translateX(16px)}
+.switch input:focus-visible+.track{outline:2px solid var(--focus);outline-offset:2px}
+.switch .txt b{display:block;font-weight:600;color:var(--text)}
+.switch .txt span{color:var(--text-3);font-size:13px}
+
+/* ---------- today ---------- */
+.grid-today{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,1fr);gap:20px;align-items:start}
+.col>*+*{margin-top:20px}
+.hero{padding:22px 24px 24px}
+.hero-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:8px;height:28px;padding:0 12px 0 10px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border);font-weight:600;font-size:13px;color:var(--text)}
+.pill .muted{font-weight:500}
+.hero-num{font-size:56px;font-weight:700;letter-spacing:-.03em;line-height:1.05;margin-top:18px}
+.hero-num small{font-size:20px;font-weight:600;color:var(--text-3);letter-spacing:-.01em;margin-left:6px}
+.hero-cap{color:var(--text-2);margin-top:6px;font-size:15px}
+.progress{position:relative;height:10px;border-radius:5px;background:var(--surface-3);margin-top:18px;overflow:hidden}
+.progress>span{position:absolute;left:0;top:0;bottom:0;border-radius:5px;background:var(--work);transition:width .4s}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:20px}
+.stat{background:var(--surface-2);border-radius:10px;padding:10px 12px}
+.stat .lbl{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text-2);font-weight:560}
+.stat .val{font-size:18px;font-weight:650;margin-top:2px}
+.stat .cnt{font-size:12px;color:var(--text-3)}
+.hero-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.hero-main{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:18px}
+.hero-main .hero-num{margin-top:0}
+.hero-note{color:var(--text-3);font-size:13px;margin-top:14px}
+
+.banner{display:flex;gap:14px;align-items:center;flex-wrap:wrap;background:var(--warn-bg);border:1px solid var(--warn-border);border-radius:var(--radius);padding:14px 16px}
+.banner .b-text{flex:1;min-width:220px}
+.banner .b-text > b{display:block;color:var(--text)}
+.banner .b-text span b{color:var(--text)}
+.banner .b-text span{color:var(--text-2);font-size:13.5px}
+.offline{max-width:1180px;margin:16px auto 0;padding:0 24px}
+.offline .banner{background:var(--bad-bg);border-color:transparent}
+
+/* timeline */
+.tl{list-style:none;margin:0;padding:0}
+.tl li{display:grid;grid-template-columns:12px minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:11px 0;border-top:1px solid var(--border)}
+.tl li:first-child{border-top:0}
+.tl .bar{width:4px;height:34px;border-radius:2px;background:var(--away);justify-self:center}
+.tl .k-Work .bar{background:var(--work)}.tl .k-Lunch .bar{background:var(--lunch)}.tl .k-Break .bar{background:var(--break)}
+.tl .k-Off .bar{background:repeating-linear-gradient(180deg,var(--away) 0 4px,transparent 4px 7px)}
+.tl .t1{font-weight:600;color:var(--text);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tl .t2{color:var(--text-3);font-size:13px}
+.tl .dur{font-weight:650;text-align:right;white-space:nowrap}
+.tl .act{display:flex;gap:6px;justify-content:flex-end;align-items:center;flex-wrap:wrap}
+.tl li.pending{background:linear-gradient(90deg,var(--warn-bg),transparent 70%);margin:0 -20px;padding-left:20px;padding-right:20px}
+.tag{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:11.5px;font-weight:600}
+.tag.now{background:var(--work);border-color:var(--work);color:#fff}
+.chipbtn{height:28px;padding:0 10px;border-radius:7px;border:1px solid var(--border-strong);background:var(--surface);font-weight:600;font-size:12.5px;cursor:pointer;color:var(--text)}
+.chipbtn:hover{background:var(--surface-2)}
+.empty{padding:28px 8px;text-align:center;color:var(--text-3)}
+
+/* week card */
+.big{font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.big small{font-size:15px;color:var(--text-3);font-weight:600;letter-spacing:0}
+.kv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 16px}
+.kv .k{font-size:12.5px;color:var(--text-3);font-weight:560}
+.kv .v{font-size:17px;font-weight:650}
+.kv4{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 14px}
+.kv4 .k{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.line{display:flex;gap:8px;align-items:baseline;margin-top:8px;color:var(--text-2)}
+.divider{height:1px;background:var(--border);margin:16px 0}
+
+/* charts */
+.chart{width:100%;display:block;overflow:visible}
+.chart text{fill:var(--text-3);font-size:11.5px}
+.chart .axis{font-size:11px}
+.chart .lbl-today{fill:var(--text);font-weight:700}
+.chart .grid{stroke:var(--grid);stroke-width:1}
+.chart .bar-work{fill:var(--work)}
+.chart .bar-today{fill:var(--work);opacity:.55}
+.chart .tgt{stroke:var(--target);stroke-width:2;stroke-linecap:round}
+.chart .hit{fill:transparent;cursor:pointer}
+.chart .hit:hover{fill:var(--surface-2)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;color:var(--text-2);font-size:12.5px;margin-top:6px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-2px}
+.legend i.l-tgt{height:2px;border-radius:1px;background:var(--target);vertical-align:3px}
+.tip{position:fixed;z-index:80;pointer-events:none;background:var(--primary);color:var(--primary-text);font-size:12.5px;line-height:1.45;padding:8px 10px;border-radius:8px;box-shadow:var(--shadow-lg);max-width:260px;opacity:0;transition:opacity .1s}
+.tip.show{opacity:1}
+
+/* reports */
+.toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.nav{display:inline-flex;align-items:center;gap:4px}
+.nav .lbl{min-width:170px;text-align:center;font-weight:650;font-size:15px}
+.kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-bottom:20px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow)}
+.kpi .k{font-size:12.5px;color:var(--text-3);font-weight:560}
+.kpi .v{font-size:22px;font-weight:700;letter-spacing:-.02em;margin-top:2px}
+.kpi .n{font-size:12px;color:var(--text-3)}
+.tbl-wrap{overflow-x:auto}
+table.tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+.tbl th{font-size:12px;color:var(--text-3);font-weight:600;text-align:left;padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
+.tbl td{padding:11px 12px;border-bottom:1px solid var(--border);white-space:nowrap;color:var(--text-2)}
+.tbl td.strong{color:var(--text)}
+.tbl .r{text-align:right}
+.tbl tbody tr{cursor:pointer}
+.tbl tbody tr:hover td{background:var(--surface-2)}
+.tbl tr.is-today td:first-child{box-shadow:inset 3px 0 0 var(--work)}
+.tbl tfoot td{font-weight:700;color:var(--text);border-bottom:0}
+.st{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:560;color:var(--text-2)}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.cal .h{font-size:12px;color:var(--text-3);font-weight:600;padding:0 4px 4px}
+.cal .c{min-height:86px;border:1px solid var(--border);border-radius:10px;padding:8px;background:var(--surface);cursor:pointer;display:flex;flex-direction:column;gap:2px;text-align:left;color:var(--text);font:inherit}
+.cal .c:hover{border-color:var(--border-strong);background:var(--surface-2)}
+.cal .c.off{background:var(--surface-2)}
+.cal .c.today{outline:2px solid var(--work);outline-offset:-1px}
+.cal .c.blank{visibility:hidden}
+.cal .n{font-size:12px;color:var(--text-3);font-weight:600}
+.cal .w{font-size:15px;font-weight:700;margin-top:auto}
+.cal .s{font-size:11.5px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cal .d{font-size:11.5px;font-weight:600}
+
+/* leave & holidays */
+.grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:start}
+.list{list-style:none;margin:0;padding:0}
+.list li{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--border)}
+.list li:first-child{border-top:0}
+.list .date{width:96px;flex:none;font-weight:600;color:var(--text)}
+.list .date span{display:block;font-size:12px;color:var(--text-3);font-weight:500}
+.list .name{flex:1;min-width:0;color:var(--text-2)}
+.list .name b{color:var(--text);font-weight:600}
+.list li.past{opacity:.6}
+.preview{max-height:260px;overflow:auto;border:1px solid var(--border);border-radius:10px;margin-top:12px}
+.preview table{width:100%;border-collapse:collapse;font-size:13px}
+.preview td,.preview th{padding:7px 10px;border-bottom:1px solid var(--border);text-align:left}
+.preview th{position:sticky;top:0;background:var(--surface-2);font-size:12px;color:var(--text-3)}
+.daypick{display:flex;gap:6px;flex-wrap:wrap}
+.daypick button{width:46px;height:36px;border-radius:9px;border:1px solid var(--border-strong);background:var(--surface);font-weight:600;cursor:pointer;color:var(--text-2)}
+.daypick button[aria-pressed="true"]{background:var(--primary);border-color:var(--primary);color:var(--primary-text)}
+
+/* modal, menu, toast */
+.overlay{position:fixed;inset:0;z-index:60;background:rgba(16,24,40,.45);display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px 16px;overflow-y:auto;animation:fade .12s}
+.modal{background:var(--surface);border-radius:16px;box-shadow:var(--shadow-lg);width:100%;max-width:560px;border:1px solid var(--border);animation:rise .16s}
+.modal.wide{max-width:720px}
+.modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:20px 22px 0}
+.modal-head p{color:var(--text-3);margin-top:3px}
+.modal-body{padding:16px 22px 4px}
+.modal-foot{display:flex;justify-content:flex-end;gap:10px;padding:16px 22px 20px;flex-wrap:wrap}
+@keyframes fade{from{opacity:0}}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}}
+.menu{position:fixed;z-index:70;min-width:200px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);padding:6px}
+.menu .mh{font-size:12px;color:var(--text-3);padding:6px 10px 4px}
+.menu button{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;text-align:left;padding:8px 10px;border-radius:8px;cursor:pointer;font-weight:560;color:var(--text)}
+.menu button:hover{background:var(--surface-2)}
+.menu button .muted{margin-left:auto;font-size:12px;font-weight:500}
+.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,16px);z-index:90;background:var(--primary);color:var(--primary-text);padding:10px 16px;border-radius:10px;font-weight:560;box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;max-width:calc(100vw - 32px)}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast.err{background:var(--bad);color:#fff}
+.mini-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.mini-kpis div{background:var(--surface-2);border-radius:10px;padding:9px 12px}
+.mini-kpis .k{font-size:12px;color:var(--text-3);font-weight:560}
+.mini-kpis .v{font-size:16px;font-weight:650}
+.form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.err-text{color:var(--bad);font-size:13px;margin-top:8px;min-height:18px}
+.skeleton{height:220px;border-radius:var(--radius);background:linear-gradient(90deg,var(--surface-2),var(--surface-3),var(--surface-2));background-size:200% 100%;animation:sk 1.2s infinite}
+@keyframes sk{to{background-position:-200% 0}}
+
+body.wizard .tabs,body.wizard .live{display:none}
+.wiz{max-width:780px;margin:8px auto 0}
+.wz-head{text-align:center;margin-bottom:18px}
+.wz-head p{margin-top:4px}
+.wz-steps{display:flex;justify-content:center;gap:22px;margin-top:16px;flex-wrap:wrap}
+.wz-step{display:flex;align-items:center;gap:8px;color:var(--text-3);font-weight:560;font-size:13px}
+.wz-step i{font-style:normal;width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--surface-3);color:var(--text-2);font-size:12px;font-weight:700}
+.wz-step.cur{color:var(--text)}.wz-step.cur i{background:var(--primary);color:var(--primary-text)}
+.wz-step.done i{background:var(--good);color:#fff}
+.wiz-card{max-width:780px;margin:0 auto}
+.wz-foot{display:flex;align-items:center;gap:10px;margin-top:22px;padding-top:16px;border-top:1px solid var(--border);flex-wrap:wrap}
+.steps{margin:14px 0 0;padding-left:22px;display:flex;flex-direction:column;gap:10px;color:var(--text-2)}
+.steps li{padding-left:4px}.steps b{color:var(--text)}
+.cmd-row{display:flex;gap:8px;align-items:flex-start;margin-top:8px}
+.cmd{flex:1;min-width:0;display:block;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font:12.5px/1.45 Consolas,"Cascadia Mono",monospace;color:var(--text);word-break:break-all}
+.imp-ok{margin-top:14px;padding:12px 14px;border-radius:10px;background:var(--good-bg);display:flex;flex-direction:column;gap:2px}
+.imp-ok b{color:var(--good)}.imp-ok span{color:var(--text-2)}
+.perms{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.perm{display:flex;align-items:center;gap:14px;justify-content:space-between;padding:12px 14px;border:1px solid var(--border);border-radius:10px}
+.perm b{display:block;color:var(--text)}.perm span{color:var(--text-3);font-size:13px}
+.chip-on{color:var(--good);font-weight:650;white-space:nowrap}
+.linkbtn{background:none;border:0;padding:0;font:inherit;font-weight:650;color:var(--link);cursor:pointer;text-decoration:underline}
+.dash{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:stretch}
+.dash>*{margin:0!important;min-width:0}
+.dash .span2{grid-column:1 / -1}
+.dash>.card{display:flex;flex-direction:column}
+.dash .card-body{flex:1;display:flex;flex-direction:column}
+.tl-card .card-body{display:block}
+.k-title{font-size:12.5px;color:var(--text-3);font-weight:560}
+.upcoming{list-style:none;margin:6px 0 0;padding:0}
+.upcoming li{display:flex;justify-content:space-between;gap:12px;padding:5px 0}
+.overall{margin-top:auto!important;padding-top:12px}
+.wk-chart{margin-top:12px}
+body.fit{height:100vh;overflow:hidden;display:flex;flex-direction:column}
+body.fit main{flex:1;min-height:0;width:100%;max-width:1320px;padding-top:clamp(10px,2vh,20px);padding-bottom:clamp(10px,2vh,20px)}
+body.fit .credit{display:none}
+body.fit .dash{height:100%;grid-template-rows:auto minmax(0,1fr);gap:clamp(10px,1.8vh,18px)}
+body.fit .dash.has-banner{grid-template-rows:auto auto minmax(0,1fr)}
+body.fit .dash>.card{min-height:0}
+body.fit .dash .card-body{min-height:0}
+body.fit .tl-card .card-body{overflow-y:auto}
+body.fit .wk-chart{flex:1;min-height:100px}
+body.fit .banner{padding:10px 14px}
+body.fit .hero{padding:clamp(14px,2.4vh,24px) clamp(16px,2vw,24px)}
+body.fit .hero-num{font-size:clamp(34px,6.4vh,56px)}
+body.fit .progress{margin-top:clamp(10px,1.8vh,18px)}
+body.fit .stats{margin-top:clamp(10px,1.8vh,20px)}
+body.fit .stat{padding:clamp(6px,1vh,10px) 12px}
+body.fit .hero-main{margin-top:clamp(8px,1.6vh,18px)}
+body.fit .btn-lg{height:clamp(36px,5vh,46px)}
+body.fit .hero-note{margin-top:clamp(6px,1.4vh,14px)}
+body.fit .card-head{padding:clamp(10px,1.8vh,16px) 20px 0}
+body.fit .card-body{padding:clamp(8px,1.4vh,14px) 20px clamp(12px,2vh,20px)}
+body.fit .big{font-size:clamp(22px,3.6vh,30px)}
+body.fit .tl li{padding:clamp(7px,1.1vh,11px) 0}
+body.fit .stat .val{font-size:clamp(15px,2.2vh,18px)}
+body.fit .hero-cap{margin-top:clamp(4px,0.8vh,6px)}
+body.fit .divider{margin:clamp(8px,1.5vh,16px) 0}
+body.fit .line{margin-top:clamp(4px,0.8vh,8px)}
+body.fit .upcoming{flex:none}
+body.fit .dash>.card{overflow:hidden}
+body.fit .top-in{max-width:1320px}
+body.fit .upcoming li{padding:clamp(2px,0.5vh,5px) 0}
+@media (max-height:760px){body.fit .stat .cnt{display:none}body.fit .hero-note{font-size:12.5px}}
+@media (max-height:680px){body.fit .hero-note{display:none}body.fit .hero-top .muted{font-size:12.5px}}
+@media (max-width:899px){.dash{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:1040px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:900px){
+  .grid-today,.grid-2{grid-template-columns:minmax(0,1fr)}
+  .brand span{display:none}
+}
+@media (max-width:640px){
+  .top-in{padding:0 16px;gap:14px}
+  main{padding:16px 16px 40px}
+  .offline{padding:0 16px}
+  .live .ltxt{display:none}
+  .hero{padding:18px}
+  .hero-num{font-size:44px}
+  .stats{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:8px}
+  .stat{padding:8px 10px}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .form-grid{grid-template-columns:minmax(0,1fr)}
+  .tl li.pending .act{grid-column:2 / -1;justify-content:flex-start}
+  .tl li.pending{grid-template-columns:12px minmax(0,1fr) auto}
+  .tabs .lg{display:none}
+  .tabs .sm{display:inline}
+  .tl li.pending{margin:0 -20px}
+  .cal{gap:3px}
+  .cal .c{min-height:60px;padding:5px;border-radius:7px}
+  .cal .s,.cal .d{display:none}
+  .cal .w{font-size:12.5px}
+  .nav .lbl{min-width:120px;font-size:14px}
+}
+@media (max-width:480px){.live{display:none}.tabs a{padding:7px 10px}}
+@media print{
+  .top,.toolbar .no-print,.offline,.toast,.tip{display:none!important}
+  body{background:#fff}
+  main{max-width:none;padding:0}
+  .card,.kpi{box-shadow:none;break-inside:avoid}
+  .tbl tbody tr:hover td{background:none}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#2a78d6"/><path d="M16 7v9h7" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="brand-txt">TrackMyTime<small>by Nikkhil Deshmukkh</small></span>
+    </div>
+    <nav class="tabs" aria-label="Sections">
+      <a href="#today" data-v="today">Today</a>
+      <a href="#reports" data-v="reports">Reports</a>
+      <a href="#leave" data-v="leave"><span class="lg">Leave &amp; holidays</span><span class="sm">Leave</span></a>
+      <a href="#settings" data-v="settings">Settings</a>
+    </nav>
+    <div class="live" id="live" aria-live="polite"></div>
+  </div>
+</header>
+<div class="offline" id="offline" hidden></div>
+<main id="main"><div class="skeleton"></div></main>
+<footer class="credit">TrackMyTime &middot; made by Nikkhil Deshmukkh</footer>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>
+/* =====================================================================
+   TrackMyTime - engine (runs inside the browser)
+   Made by Nikkhil Deshmukkh
+   Same rules as the Windows version: the log is a list of lines
+   "Date,Time,Event,Note" exactly like TimeLog.csv, so old data imports 1:1.
+   ===================================================================== */
+(function (root) {
+  'use strict';
+
+  var MIN = 60000, HOUR = 3600000;
+  var HEADER = 'Date,Time,Event,Note';
+  var VERSION = '1.0';
+  var GAP = 3 * MIN;                 // a longer silence means the laptop slept or was off
+
+  /* ---------------- small helpers ---------------- */
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function dayKey(t) { var d = new Date(t); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function dayStart(t) { var d = new Date(t); return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); }
+  function addDays(t, n) { var d = new Date(t); return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n).getTime(); }
+  function keyToMs(k) { var p = String(k).split('-'); return new Date(+p[0], +p[1] - 1, +p[2]).getTime(); }
+  function hms(t) { var d = new Date(t); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); }
+  function iso(t) { return t == null ? null : dayKey(t) + 'T' + hms(t); }
+  function wholeSec(t) { return Math.floor(t / 1000) * 1000; }
+  function secs(ms) { return Math.floor(ms / 1000); }
+  function clock(t) { var d = new Date(t), h = d.getHours(), ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return h + ':' + pad(d.getMinutes()) + ' ' + ap; }
+  function span(ms) {
+    var neg = ms < 0; if (neg) ms = -ms;
+    var mins = Math.floor(ms / MIN);
+    var s = Math.floor(mins / 60) + 'h ' + pad(mins % 60) + 'm';
+    return neg ? '-' + s : s;
+  }
+  function weekStart(t) { var d = new Date(dayStart(t)); return addDays(d.getTime(), -((d.getDay() + 6) % 7)); }
+  function toBool(v, def) {
+    if (v === undefined || v === null) return def;
+    if (typeof v === 'boolean') return v;
+    var s = String(v).trim().toLowerCase();
+    if (['true', 'yes', '1', 'on'].indexOf(s) >= 0) return true;
+    if (['false', 'no', '0', 'off'].indexOf(s) >= 0) return false;
+    return def;
+  }
+
+  /* ---------------- reading dates and times written by people or Excel ---------------- */
+  var MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12,
+    january: 1, february: 2, march: 3, april: 4, june: 6, july: 7, august: 8, september: 9, october: 10, november: 11, december: 12 };
+  function mkDate(y, m, d) {
+    if (y < 100) y += 2000;
+    if (!(y >= 1990 && y <= 2100 && m >= 1 && m <= 12 && d >= 1 && d <= 31)) return null;
+    var t = new Date(y, m - 1, d);
+    return t.getMonth() === m - 1 ? t.getTime() : null;
+  }
+  function parseDateText(s) {
+    s = String(s == null ? '' : s).trim().replace(/^"|"$/g, '').trim();
+    var m;
+    if ((m = /^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/.exec(s))) return mkDate(+m[1], +m[2], +m[3]);
+    if ((m = /^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4}|\d{2})$/.exec(s))) return mkDate(+m[3], +m[2], +m[1]);
+    if ((m = /^(\d{1,2})[-\s]([A-Za-z]{3,9})\.?[-\s,]+(\d{4}|\d{2})$/.exec(s))) { var mo = MONTHS[m[2].toLowerCase()]; return mo ? mkDate(+m[3], mo, +m[1]) : null; }
+    if ((m = /^(\d{4})(\d{2})(\d{2})$/.exec(s))) return mkDate(+m[1], +m[2], +m[3]);
+    return null;
+  }
+  function parseTimeText(s) {
+    s = String(s == null ? '' : s).trim().replace(/^"|"$/g, '').trim();
+    var m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp])?\.?[Mm]?\.?$/.exec(s);
+    if (!m) return null;
+    var h = +m[1], mi = +m[2], se = +(m[3] || 0);
+    if (m[4]) { var pm = m[4].toLowerCase() === 'p'; if (h === 12) h = 0; if (pm) h += 12; }
+    if (h > 23 || mi > 59 || se > 59) return null;
+    return ((h * 60 + mi) * 60 + se) * 1000;
+  }
+  function parseWhen(dateText, timeText) {
+    var d = parseDateText(dateText), t = parseTimeText(timeText);
+    if (d == null || t == null) return null;
+    var x = new Date(d);
+    return new Date(x.getFullYear(), x.getMonth(), x.getDate(), Math.floor(t / HOUR), Math.floor(t / MIN) % 60, Math.floor(t / 1000) % 60).getTime();
+  }
+
+  function eventName(text) {
+    var s = String(text == null ? '' : text).trim().replace(/^"|"$/g, '').trim().toLowerCase();
+    if (/^laptop\s*on$/.test(s)) return 'Laptop on';
+    if (/^laptop\s*off$/.test(s)) return 'Laptop off';
+    if (/^break\s*start$/.test(s)) return 'Break start';
+    if (/^break\s*end$/.test(s)) return 'Break end';
+    if (/^lunch\s*start$/.test(s)) return 'Lunch start';
+    if (/^lunch\s*end$/.test(s)) return 'Lunch end';
+    if (/^away$/.test(s)) return 'Away';
+    if (/^marked\s+as\s+(work|working|worked)$/.test(s)) return 'Marked as work';
+    if (/^marked\s+as\s+lunch$/.test(s)) return 'Marked as lunch';
+    if (/^marked\s+as\s+break$/.test(s)) return 'Marked as break';
+    if (/^marked\s+as\s+(away|not\s+working)$/.test(s)) return 'Marked as away';
+    if (/^half[\s-]*day/.test(s)) return 'Half day leave';
+    if (/^(working\s*day|not\s+leave)$/.test(s)) return 'Working day';
+    if (/^(day\s*reset|auto)$/.test(s)) return 'Day reset';
+    if (/^leave/.test(s)) return 'Leave day';
+    return null;
+  }
+  var MARK_KIND = { 'Marked as work': 'Work', 'Marked as lunch': 'Lunch', 'Marked as break': 'Break', 'Marked as away': 'Away' };
+  var MARK_EVENT = { Work: 'Marked as work', Lunch: 'Marked as lunch', Break: 'Marked as break', Away: 'Marked as away' };
+
+  function parseUntil(start, note) {
+    if (!note) return null;
+    var m = /until\s+(\d{4}-\d{1,2}-\d{1,2}\s+)?(\d{1,2}:\d{2}(?::\d{2})?(?:\s*[ap]m)?)/i.exec(note);
+    if (!m) return null;
+    var datePart = (m[1] || '').trim() || dayKey(start);
+    var end = parseWhen(datePart, m[2]);
+    if (end == null) return null;
+    if (!m[1] && end <= start) end = addDays(end, 1) + (end - dayStart(end));
+    return end > start ? end : null;
+  }
+  function splitLine(line) {
+    var p = line.split(',');
+    if (p.length < 3) p = line.split(';');
+    if (p.length < 3) p = line.split('\t');
+    return p;
+  }
+  function parseLines(lines, base) {
+    var out = [];
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+      if (!line || !line.trim()) continue;
+      var p = splitLine(line);
+      if (p.length < 3) continue;
+      var name = eventName(p[2]);
+      if (!name) continue;
+      var when = parseWhen(p[0], p[1]);
+      if (when == null) continue;
+      var note = p.length > 3 ? p.slice(3).join(',').trim().replace(/^"|"$/g, '') : '';
+      var until = null;
+      if (name === 'Away' || MARK_KIND[name]) { until = parseUntil(when, note); if (until == null) continue; }
+      out.push({ when: when, event: name, note: note, until: until, line: base + i + 1 });
+    }
+    return out;
+  }
+
+  /* ---------------- holidays file (Date,Occasion) ---------------- */
+  function parseHolidaysText(text) {
+    var h = {};
+    String(text || '').split(/\r?\n/).forEach(function (line) {
+      if (!line.trim()) return;
+      var idx = line.indexOf(',');
+      if (idx < 0) idx = line.indexOf(';');
+      if (idx < 0) idx = line.indexOf('\t');
+      if (idx < 1) return;
+      var d = parseDateText(line.slice(0, idx));
+      if (d == null) return;
+      var name = line.slice(idx + 1).trim().replace(/[,;]+$/, '').trim();
+      if (name.length >= 2 && name.charAt(0) === '"' && name.charAt(name.length - 1) === '"') name = name.slice(1, -1).replace(/""/g, '"');
+      h[dayKey(d)] = name || 'Holiday';
+    });
+    return h;
+  }
+  function holidaysToText(h) {
+    var keys = Object.keys(h).sort();
+    return 'Date,Occasion\r\n' + keys.map(function (k) { return k + ',"' + String(h[k]).replace(/[\r\n]+/g, ' ').replace(/"/g, '""') + '"'; }).join('\r\n') + (keys.length ? '\r\n' : '');
+  }
+
+  /* ---------------- settings ---------------- */
+  function cleanSettings(inp) {
+    inp = inp || {};
+    var o = {};
+    var h = parseFloat(inp.DailyHours);
+    if (!(h >= 0.5 && h <= 24)) h = 9;
+    o.DailyHours = Math.round(h * 100) / 100;
+    var src = inp.WorkDays == null ? [1, 2, 3, 4, 5] : [].concat(inp.WorkDays);
+    var days = [];
+    src.forEach(function (d) { var n = parseInt(d, 10); if (n >= 0 && n <= 6 && days.indexOf(n) < 0) days.push(n); });
+    o.WorkDays = days.sort(function (a, b) { return a - b; });
+    o.LunchCounts = toBool(inp.LunchCounts, true);
+    o.BreaksCount = toBool(inp.BreaksCount, false);
+    var m = parseInt(inp.AwayMinutes, 10);
+    if (isNaN(m) || m < 0 || m > 240) m = 10;
+    o.AwayMinutes = m;
+    o.CallsCount = toBool(inp.CallsCount, true);
+    o.AskOnReturn = toBool(inp.AskOnReturn, true);
+    o.AutoLeave = toBool(inp.AutoLeave, true);
+    o.AutoBackup = toBool(inp.AutoBackup, true);
+    return o;
+  }
+
+  /* ---------------- segments: stretches of Work / Lunch / Break / Away ---------------- */
+  function seg(kind, start, end) { return { kind: kind, start: start, end: end }; }
+  function paint(segs, a, b, kind) {
+    var out = [];
+    for (var i = 0; i < segs.length; i++) {
+      var s = segs[i], sEnd = s.end;
+      if ((sEnd != null && sEnd <= a) || (b != null && s.start >= b)) { out.push(s); continue; }
+      if (s.start < a) out.push(seg(s.kind, s.start, a));
+      if (b != null && (sEnd == null || sEnd > b)) out.push(seg(s.kind, b, sEnd));
+    }
+    if (kind !== 'Off') out.push(seg(kind, a, b));
+    return out.sort(function (x, y) { return x.start - y.start; });
+  }
+  function merge(segs) {
+    var out = [];
+    segs.forEach(function (s) {
+      if (s.end != null && s.end <= s.start) return;
+      var p = out[out.length - 1];
+      if (p && p.kind === s.kind && p.end != null && p.end === s.start) { out[out.length - 1] = seg(p.kind, p.start, s.end); return; }
+      out.push(s);
+    });
+    return out;
+  }
+
+  /* =====================================================================
+     The tracker
+     ===================================================================== */
+  function Tracker(data) {
+    data = data || {};
+    this.lines = (data.lines && data.lines.length) ? data.lines.slice() : [HEADER];
+    this.holidays = data.holidays || {};
+    this.S = cleanSettings(data.settings);
+    this.notices = [];
+    this.ver = 0;
+    this.awayOpen = false; this.awayStart = null; this.lastActivity = null; this.lastTick = null;
+    this.onChange = null;
+    this.cache = {}; this.cacheKey = ''; this.bucketKey = ''; this.buckets = {}; this.overallKey = ''; this.overall = null;
+    this.reload();
+  }
+  var P = Tracker.prototype;
+
+  P.changed = function (what) { this.ver++; if (this.onChange) { try { this.onChange(what); } catch (e) {} } };
+  P.notice = function (n) { this.notices.push(n); };
+  P.target = function () { return this.S.DailyHours * HOUR; };
+  P.awayLimit = function () { return this.S.AwayMinutes * MIN; };
+  P.promptMin = function () { return this.S.AwayMinutes > 0 ? this.awayLimit() : 10 * MIN; };
+
+  P.reload = function () {
+    var evs = parseLines(this.lines, 0);
+    evs.sort(function (a, b) { return a.when - b.when || a.line - b.line; });
+    this.events = evs;
+    // state machine
+    var segs = [], on = false, pause = null, kind = null, start = null;
+    evs.forEach(function (e) {
+      var isState = true;
+      switch (e.event) {
+        case 'Laptop on': on = true; pause = null; break;
+        case 'Laptop off': on = false; pause = null; break;
+        case 'Break start': if (on) pause = 'Break'; break;
+        case 'Lunch start': if (on) pause = 'Lunch'; break;
+        case 'Break end': case 'Lunch end': pause = null; break;
+        default: isState = false;
+      }
+      if (!isState) return;
+      var nk = on ? (pause || 'Work') : null;
+      if (nk !== kind) {
+        if (kind && e.when > start) segs.push(seg(kind, start, e.when));
+        kind = nk; start = e.when;
+      }
+    });
+    if (kind) segs.push(seg(kind, start, null));
+    this.isOn = on; this.pause = pause; this.stateSince = start;
+    evs.forEach(function (e) { if (e.event === 'Away') segs = paint(segs, e.when, e.until, 'Away'); });
+    evs.slice().sort(function (a, b) { return a.line - b.line; }).forEach(function (e) {
+      if (MARK_KIND[e.event]) segs = paint(segs, e.when, e.until, MARK_KIND[e.event]);
+    });
+    this.segs = merge(segs);
+    var ds = {};
+    evs.slice().sort(function (a, b) { return a.line - b.line; }).forEach(function (e) {
+      var k = dayKey(e.when);
+      if (e.event === 'Leave day') ds[k] = 'leave';
+      else if (e.event === 'Half day leave') ds[k] = 'half';
+      else if (e.event === 'Working day') ds[k] = 'work';
+      else if (e.event === 'Day reset') delete ds[k];
+    });
+    this.dayStatus = ds;
+    this.startDay = this.segs.length ? dayStart(this.segs[0].start) : null;
+    this.ver++;
+  };
+
+  P.addEvent = function (when, event, note) {
+    var clean = String(note || '').replace(/[,\r\n]/g, ' ');
+    this.lines.push(dayKey(when) + ',' + hms(when) + ',' + event + ',' + clean);
+    this.reload();
+    this.changed('log');
+  };
+
+  P.addMark = function (a, b, kind, note) {
+    if (!MARK_EVENT[kind]) throw new Error('Unknown kind of time: ' + kind);
+    a = wholeSec(a); b = wholeSec(b);
+    if (b <= a) throw new Error('The end time must be after the start time.');
+    if (b - a > 36 * HOUR) throw new Error('That period is too long (more than 36 hours).');
+    var u = 'until ' + (dayKey(b) === dayKey(a) ? hms(b) : dayKey(b) + ' ' + hms(b));
+    if (note) u += ' - ' + note;
+    this.addEvent(a, MARK_EVENT[kind], u);
+  };
+
+  P.setDayStatus = function (dayMs, status) {
+    var map = { leave: 'Leave day', half: 'Half day leave', work: 'Working day', auto: 'Day reset' };
+    if (!map[status]) throw new Error('Unknown day status: ' + status);
+    this.addEvent(dayStart(dayMs), map[status], 'set by you');
+  };
+
+  P.saveSettings = function (inp) { this.S = cleanSettings(inp); this.ver++; this.changed('settings'); };
+  P.setHolidays = function (h) { this.holidays = h; this.ver++; this.changed('holidays'); };
+
+  /* ---------------- per-day numbers ---------------- */
+  P.updateBuckets = function (now) {
+    var key = this.ver + '|' + dayKey(now);
+    if (this.bucketKey === key) return;
+    var b = {};
+    this.segs.forEach(function (s) {
+      var end = s.end == null ? now : s.end;
+      var last = dayStart(end - 1);
+      if (last < dayStart(s.start)) last = dayStart(s.start);
+      for (var d = dayStart(s.start); d <= last; d = addDays(d, 1)) { var k = dayKey(d); (b[k] = b[k] || []).push(s); }
+    });
+    this.buckets = b; this.bucketKey = key;
+  };
+  P.segsForDay = function (day, now) {
+    this.updateBuckets(now);
+    var list = (this.buckets[dayKey(day)] || []).slice();
+    if (this.awayOpen && this.pause == null && this.awayStart != null && day >= dayStart(this.awayStart)) {
+      list = paint(list, this.awayStart, null, dayStart(this.awayStart) < dayStart(now) ? 'Off' : 'Away');
+    }
+    return list;
+  };
+  P.dayStatusOf = function (day, hasActivity, today) {
+    var k = dayKey(day), ov = this.dayStatus[k] || null, hol = this.holidays[k] || null;
+    var isWorkday = this.S.WorkDays.indexOf(new Date(day).getDay()) >= 0;
+    var st = 'work', tg = this.target();
+    if (ov === 'leave') { st = 'leave'; tg = 0; }
+    else if (ov === 'half') { st = 'half'; tg = this.target() / 2; }
+    else if (ov === 'work') { st = 'workday'; }
+    else if (hol) { st = 'holiday'; tg = 0; }
+    else if (!isWorkday) { st = 'weekend'; tg = 0; }
+    else if (this.startDay == null || day < this.startDay) { st = 'before'; tg = 0; }
+    else if (day < today && !hasActivity && this.S.AutoLeave) { st = 'autoleave'; tg = 0; }
+    return { status: st, target: tg, override: ov, holiday: hol };
+  };
+  P.day = function (dayMs, now) {
+    var from = dayStart(dayMs), today = dayStart(now);
+    var ck = this.ver + '|' + today + '|' + this.awayOpen + '|' + this.awayStart + '|' + this.pause;
+    if (this.cacheKey !== ck) { this.cache = {}; this.cacheKey = ck; }
+    if (from < today && this.cache[from]) return this.cache[from];
+    var to = addDays(from, 1);
+    var t = { Work: 0, Lunch: 0, Break: 0, Away: 0 }, first = null, last = null, live = false, blocks = [];
+    if (from <= today) {
+      this.segsForDay(from, now).forEach(function (s) {
+        var a = Math.max(s.start, from), open = s.end == null, e = open ? now : s.end;
+        var b = Math.min(e, to, now);
+        if (b <= a) return;
+        var isLive = open && b === now;
+        if (last != null && a > last) { blocks.push({ kind: 'Off', start: last, end: a, open: false }); t.Away += a - last; }
+        blocks.push({ kind: s.kind, start: a, end: b, open: isLive });
+        t[s.kind] += b - a;
+        if (first == null) first = a;
+        last = b; live = isLive;
+      });
+    }
+    var counted = t.Work + (this.S.LunchCounts ? t.Lunch : 0) + (this.S.BreaksCount ? t.Break : 0);
+    var st = this.dayStatusOf(from, blocks.length > 0, today);
+    var r = { day: from, key: dayKey(from), status: st.status, override: st.override, holiday: st.holiday, target: st.target,
+      counted: counted, work: t.Work, lunch: t.Lunch, breaks: t.Break, away: t.Away, diff: counted - st.target,
+      first: first, last: last, live: live, blocks: blocks };
+    if (from < today) this.cache[from] = r;
+    return r;
+  };
+  function leaveValue(st) { return st === 'leave' || st === 'autoleave' ? 1 : st === 'half' ? 0.5 : 0; }
+
+  P.summary = function (now) {
+    var today = dayStart(now), t = this.day(today, now);
+    var ws = weekStart(today), week = [], prior = 0, wWork = 0, wTarget = 0, priorCount = 0;
+    for (var i = 0; i < 7; i++) {
+      var d = this.day(addDays(ws, i), now);
+      week.push(d); wTarget += d.target;
+      if (d.day <= today) wWork += d.counted;
+      if (d.day < today && d.status !== 'before') { prior += d.diff; priorCount++; }
+    }
+    var dt = new Date(today), ms = new Date(dt.getFullYear(), dt.getMonth(), 1).getTime(), me = new Date(dt.getFullYear(), dt.getMonth() + 1, 1).getTime();
+    var mPrior = 0, mWork = 0, mTarget = 0, mLeaves = 0, mHol = 0;
+    for (var x = ms; x < me; x = addDays(x, 1)) {
+      var y = this.day(x, now);
+      mTarget += y.target;
+      if (x <= today) { mWork += y.counted; mLeaves += leaveValue(y.status); }
+      if (y.status === 'holiday') mHol++;
+      if (x < today) mPrior += y.diff;
+    }
+    var okey = this.cacheKey + '|' + today;
+    if (this.overallKey !== okey) {
+      var bal = 0, wk = 0;
+      if (this.startDay != null) for (var z = this.startDay; z < today; z = addDays(z, 1)) { var q = this.day(z, now); bal += q.diff; wk += q.counted; }
+      this.overall = { balance: bal, worked: wk }; this.overallKey = okey;
+    }
+    return { today: t, weekStart: ws, week: week, weekWork: wWork, weekTarget: wTarget, prior: prior, priorCount: priorCount,
+      need: (t.target - prior) - t.counted, monthStart: ms, monthPrior: mPrior, monthWork: mWork, monthTarget: mTarget,
+      monthLeaves: mLeaves, monthHolidays: mHol, overall: this.overall };
+  };
+
+  P.live = function (now, today) {
+    var status = 'off';
+    if (this.isOn) status = this.pause ? this.pause.toLowerCase() : (this.awayOpen ? 'away' : 'working');
+    var since = this.stateSince;
+    if (status === 'away') since = this.awayStart;
+    else if (today && today.blocks.length) { var lb = today.blocks[today.blocks.length - 1]; if (lb.open) since = lb.start; }
+    return { status: status, since: since };
+  };
+
+  /* ---------------- the same JSON the window used before ---------------- */
+  function dayData(d, light) {
+    var o = { d: d.key, st: d.status, ov: d.override, hn: d.holiday, tg: secs(d.target), wk: secs(d.counted), w: secs(d.work),
+      l: secs(d.lunch), b: secs(d.breaks), a: secs(d.away), s: iso(d.first), e: iso(d.last), live: d.live };
+    if (!light) o.blocks = d.blocks.map(function (b) { return { k: b.kind, s: iso(b.start), e: iso(b.end), open: b.open }; });
+    return o;
+  }
+  P.stateData = function (now) {
+    var sum = this.summary(now), t = sum.today, lv = this.live(now, t);
+    var pending = t.blocks.filter(function (b) { return (b.kind === 'Away' || b.kind === 'Off') && !b.open && b.end - b.start >= MIN; })
+      .map(function (b) { return { k: b.kind, s: iso(b.start), e: iso(b.end) }; });
+    var next = null, upcoming = [], tk = dayKey(now), keys = Object.keys(this.holidays).sort();
+    for (var i = 0; i < keys.length; i++) if (keys[i] >= tk) { if (!next) next = { d: keys[i], name: this.holidays[keys[i]] }; if (upcoming.length < 3) upcoming.push({ d: keys[i], name: this.holidays[keys[i]] }); }
+    return {
+      v: VERSION, now: iso(now), ver: this.ver, settings: this.S,
+      live: { status: lv.status, since: iso(lv.since) },
+      today: dayData(t, false),
+      doneAt: t.target > t.counted ? iso(now + (t.target - t.counted)) : null,
+      week: { start: dayKey(sum.weekStart), days: sum.week.map(function (d) { return dayData(d, true); }), worked: secs(sum.weekWork),
+        target: secs(sum.weekTarget), prior: secs(sum.prior), priorCount: sum.priorCount, need: secs(sum.need), leaveAt: sum.need > 0 ? iso(now + sum.need) : null },
+      month: { start: dayKey(sum.monthStart), worked: secs(sum.monthWork), target: secs(sum.monthTarget), prior: secs(sum.monthPrior), leaves: sum.monthLeaves, holidays: sum.monthHolidays },
+      overall: { balance: secs(sum.overall.balance), worked: secs(sum.overall.worked), since: this.startDay == null ? null : iso(this.startDay) },
+      pending: pending, nextHoliday: next, upcoming: upcoming, entries: this.events.length
+    };
+  };
+  P.rangeData = function (fromKey, toKey, now, light) {
+    var a = keyToMs(fromKey), b = keyToMs(toKey);
+    if (b < a) { var t = a; a = b; b = t; }
+    var days = [];
+    for (var d = a, n = 0; d <= b && n < 401; d = addDays(d, 1), n++) days.push(dayData(this.day(d, now), light));
+    return { from: dayKey(a), to: dayKey(b), since: this.startDay == null ? null : iso(this.startDay), days: days };
+  };
+  P.holidayData = function () {
+    var h = this.holidays;
+    return { items: Object.keys(h).sort().map(function (k) { return { d: k, name: h[k] }; }) };
+  };
+
+  /* ---------------- noticing sleep, time away and coming back ---------------- */
+  P.promptNotice = function (a, b, how) {
+    if (b - a < this.promptMin()) return;
+    this.notice({ type: 'prompt', a: wholeSec(a), b: wholeSec(b), how: how });
+  };
+  P.returnFrom = function (awayFrom, returnAt, how) {
+    if (returnAt < awayFrom) returnAt = awayFrom;
+    if (!this.isOn) { this.addEvent(returnAt, 'Laptop on', 'auto - back'); return; }
+    var same = dayKey(awayFrom) === dayKey(returnAt);
+    if (this.pause != null) {
+      var p = this.pause;
+      if (same) {
+        var len = returnAt - this.stateSince;
+        this.addEvent(returnAt, p + ' end', 'auto - you came back');
+        this.notice({ type: 'tip', text: 'Welcome back. Your ' + p.toLowerCase() + ' ended at ' + clock(returnAt) + ' (' + span(len) + ').' });
+      } else {
+        this.addEvent(awayFrom, p + ' end', 'auto - end of day');
+        this.addEvent(awayFrom, 'Laptop off', 'auto - no activity after this');
+        this.addEvent(returnAt, 'Laptop on', 'auto - back');
+      }
+    } else if (same) {
+      var min = how === 'idle' ? this.promptMin() : GAP;
+      if (returnAt - awayFrom >= min) {
+        this.addEvent(awayFrom, 'Away', 'until ' + hms(returnAt) + ' - ' + (how === 'asleep' ? 'laptop asleep' : 'no activity'));
+        this.promptNotice(awayFrom, returnAt, how);
+      }
+    } else {
+      this.addEvent(awayFrom, 'Laptop off', 'auto - no activity after this');
+      this.addEvent(returnAt, 'Laptop on', 'auto - back');
+    }
+  };
+  P.closeAway = function (now) {
+    if (!this.awayOpen) return;
+    var from = this.awayStart;
+    this.awayOpen = false; this.awayStart = null; this.lastActivity = now; this.activityFloor = now; this.ver++;
+    this.returnFrom(from, now, 'idle');
+  };
+  // Called about every second. idleMs = how long there has been no keyboard/mouse activity.
+  // paused = the browser itself paused this page (not the laptop sleeping).
+  P.monitor = function (now, idleMs, paused) {
+    if (this.lastTick == null) this.lastTick = now;
+    if (this.lastActivity == null) this.lastActivity = now;
+    if (now - this.lastTick > GAP) {
+      if (paused) { this.lastTick = now; if (!this.awayOpen) this.lastActivity = Math.max(this.lastActivity, now - Math.max(0, idleMs || 0)); return; }
+      var from = this.lastActivity;
+      if (this.awayOpen && this.awayStart != null) from = this.awayStart;
+      if (from > this.lastTick) from = this.lastTick;
+      this.awayOpen = false; this.awayStart = null; this.lastActivity = now; this.activityFloor = now; this.lastTick = now; this.ver++;
+      this.returnFrom(from, now, 'asleep');
+      return;
+    }
+    this.lastTick = now;
+    var act = now - Math.max(0, idleMs || 0);
+    if (idleMs > 0) {
+      // Edge only says "idle" once the quiet time has passed, so move the last activity back to when it really stopped
+      // (but never before the moment you last came back or the tracker started).
+      this.lastActivity = Math.max(act, this.activityFloor || 0);
+    } else if (act > this.lastActivity) this.lastActivity = act;
+    if (this.awayLimit() <= 0) { if (this.awayOpen) this.closeAway(now); return; }
+    var idleFor = now - this.lastActivity;
+    if (!this.awayOpen) {
+      if (idleFor >= this.awayLimit()) { this.awayOpen = true; this.awayStart = wholeSec(this.lastActivity); this.ver++; this.notice({ type: 'away' }); }
+    } else if (idleFor < this.awayLimit()) {
+      var f = this.awayStart;
+      this.awayOpen = false; this.awayStart = null; this.activityFloor = this.lastActivity; this.ver++;
+      this.returnFrom(f, this.lastActivity, 'idle');
+    }
+  };
+
+  // When the tracker opens. seen = { seen: last heartbeat, activity: last activity } from the previous run.
+  P.startSession = function (now, seen) {
+    if (seen && seen.seen > now) seen = null;
+    var lastState = null;
+    this.events.forEach(function (e) {
+      if (['Laptop on', 'Laptop off', 'Break start', 'Break end', 'Lunch start', 'Lunch end'].indexOf(e.event) >= 0 && e.when <= now) lastState = e.when;
+    });
+    var after = dayStart(now);
+    if (lastState != null) { after = lastState; if (seen && seen.seen > after) after = seen.seen; }
+    this.lastTick = now; this.lastActivity = now; this.activityFloor = now; this.awayOpen = false; this.awayStart = null;
+    var onAt = now;
+    if (this.isOn) {
+      if (seen && now - seen.seen < 3 * MIN) {
+        if (seen.activity != null && seen.activity <= now) this.lastActivity = this.activityFloor = seen.activity;
+        return 'continued';
+      }
+      var offAt = after;
+      if (seen && seen.activity != null && seen.activity <= offAt && offAt - seen.activity >= this.promptMin()) {
+        offAt = seen.activity;
+        if (lastState != null && offAt < lastState) offAt = lastState;
+      }
+      if (this.pause != null && dayKey(offAt) === dayKey(onAt)) {
+        var p = this.pause;
+        this.addEvent(onAt, p + ' end', 'auto - tracker back on');
+        this.notice({ type: 'tip', text: 'Welcome back. Your ' + p.toLowerCase() + ' ended at ' + clock(onAt) + '.' });
+      } else {
+        if (this.pause != null) this.addEvent(offAt, this.pause + ' end', 'auto - laptop was off');
+        this.addEvent(offAt, 'Laptop off', 'auto - last seen running');
+        this.addEvent(onAt, 'Laptop on', 'auto - tracker started');
+        if (dayKey(offAt) === dayKey(onAt)) this.promptNotice(offAt, onAt, 'off');
+      }
+    } else {
+      this.addEvent(onAt, 'Laptop on', 'auto - tracker started');
+      if (lastState != null && dayKey(lastState) === dayKey(onAt)) this.promptNotice(lastState, onAt, 'off');
+    }
+    return 'started';
+  };
+
+  P.breakAction = function (what, now) {
+    if (this.awayOpen) this.closeAway(now);
+    if (!this.isOn) this.addEvent(now, 'Laptop on', 'added when you used a break button');
+    if (what === 'End') { if (this.pause != null) this.addEvent(now, this.pause + ' end', ''); }
+    else if (what === 'Lunch' || what === 'Break') { if (this.pause !== what) this.addEvent(now, what + ' start', ''); }
+    else throw new Error('Unknown action: ' + what);
+    this.lastActivity = now; this.activityFloor = now;
+  };
+
+  P.stopTracking = function (now) {
+    if (!this.isOn) return;
+    var offAt = (this.awayOpen && this.awayStart != null && this.pause == null) ? this.awayStart : now;
+    if (this.pause != null) this.addEvent(offAt, this.pause + ' end', 'tracker closed');
+    this.addEvent(offAt, 'Laptop off', 'tracker closed by you');
+  };
+
+  P.unmarked = function (a, b, now) {
+    var d = this.day(a, now);
+    return d.blocks.some(function (bl) {
+      if (bl.kind !== 'Away' && bl.kind !== 'Off') return false;
+      return Math.min(bl.end, b) - Math.max(bl.start, a) >= MIN;
+    });
+  };
+
+  /* ---------------- bringing in data from the old Windows version or a backup ---------------- */
+  // files: { timelog: text, holidays: text, settings: text, backup: text }
+  P.importData = function (files, now) {
+    var addLines = [], hol = null, set = null;
+    if (files.backup) {
+      var j = JSON.parse(files.backup);
+      if (!j || !j.log) throw new Error('This is not a TrackMyTime / My Time Tracker backup file.');
+      addLines = j.log; hol = j.holidays || {}; set = j.settings || null;
+    }
+    if (files.timelog) addLines = addLines.concat(String(files.timelog).split(/\r?\n/));
+    if (files.holidays) { hol = hol || {}; var ph = parseHolidaysText(files.holidays); Object.keys(ph).forEach(function (k) { hol[k] = ph[k]; }); }
+    if (files.settings) { try { set = JSON.parse(String(files.settings).replace(/^\uFEFF/, '')); } catch (e) { set = null; } }
+    var good = parseLines(addLines, 0);
+    if (!good.length && !hol && !set) throw new Error('No time entries were found in the files you chose.');
+    var have = {};
+    this.lines.forEach(function (l) { have[l] = 1; });
+    var fresh = addLines.filter(function (l) { return l && l.trim() && eventName(splitLine(l)[2]) && !have[l] && (have[l] = 1); });
+    var existing = this.lines.filter(function (l) { return l !== HEADER; });
+    this.lines = [HEADER].concat(fresh, existing);     // older (imported) first, so your newer changes win
+    if (hol) { var h = this.holidays; Object.keys(hol).forEach(function (k) { h[k] = hol[k]; }); }
+    if (set) this.S = cleanSettings(set);
+    this.reload();
+    this.changed('all');
+    var first = good.length ? Math.min.apply(null, good.map(function (e) { return e.when; })) : null;
+    var lastEv = good.length ? Math.max.apply(null, good.map(function (e) { return e.when; })) : null;
+    return { entries: fresh.length, holidays: hol ? Object.keys(hol).length : 0, settings: !!set, first: first, last: lastEv,
+      runningToday: this.isOn && lastEv != null && dayKey(lastEv) === dayKey(now) };
+  };
+  P.backupText = function (now) {
+    return JSON.stringify({ app: 'TrackMyTime', by: 'Nikkhil Deshmukkh', version: VERSION, savedAt: iso(now), log: this.lines, holidays: this.holidays, settings: this.S }, null, 1);
+  };
+  P.timelogText = function () { return this.lines.join('\r\n') + '\r\n'; };
+  P.holidaysText = function () { return holidaysToText(this.holidays); };
+
+  var api = { Tracker: Tracker, HEADER: HEADER, VERSION: VERSION, GAP: GAP, dayKey: dayKey, dayStart: dayStart, addDays: addDays, keyToMs: keyToMs,
+    iso: iso, clock: clock, span: span, parseLines: parseLines, parseHolidaysText: parseHolidaysText, holidaysToText: holidaysToText,
+    cleanSettings: cleanSettings, parseWhen: parseWhen, eventName: eventName };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  root.TTEngine = api;
+})(typeof window !== 'undefined' ? window : this);
+
+</script>
+<script>
+(function () {
+'use strict';
+
+/* ======================= basics ======================= */
+var KEY = new URLSearchParams(location.search).get('k') || '';
+var app = {
+  S: null, fetchedAt: 0, view: 'today',
+  rep: { mode: 'week', anchor: null, data: null, loading: false },
+  year: null, holidays: null, leave: null,
+  menuOpen: false, offline: false, settingsDirty: false, modals: []
+};
+var main = document.getElementById('main');
+var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+var DOW_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+var KINDS = {
+  Work:  { label: 'Working',    short: 'Work' },
+  Lunch: { label: 'Lunch',      short: 'Lunch' },
+  Break: { label: 'Break',      short: 'Break' },
+  Away:  { label: 'Away',       short: 'Away' },
+  Off:   { label: 'Laptop off', short: 'Off' }
+};
+var STATUS = {
+  work: 'Working day', workday: 'Working day (marked)', weekend: 'Weekend', holiday: 'Holiday',
+  leave: 'Leave', half: 'Half-day leave', autoleave: 'Leave (no activity)', before: 'Before tracking'
+};
+var NDASH = ' &ndash; ';
+
+function pad(n) { return (n < 10 ? '0' : '') + n; }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function parseIso(s) {
+  if (!s) return null;
+  if (s instanceof Date) return s;
+  var m = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(s);
+  if (!m) return null;
+  return new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0));
+}
+function ymd(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function isoOf(d) { return ymd(d) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); }
+function addDays(d, n) { var x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() + n); return x; }
+function dateOnly(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function weekStart(d) { var x = dateOnly(d); return addDays(x, -((x.getDay() + 6) % 7)); }
+function serverNow() { return app.S ? parseIso(app.S.now) : new Date(); }
+function todayStr() { return app.S ? app.S.now.slice(0, 10) : ymd(new Date()); }
+function fmtTime(v) {
+  var d = parseIso(v); if (!d) return '&ndash;';
+  var h = d.getHours(), m = d.getMinutes(), ap = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return h + ':' + pad(m) + ' ' + ap;
+}
+function fmtTimeText(v) { return fmtTime(v).replace('&ndash;', '-'); }
+function fmtDur(sec) {
+  sec = Math.max(0, Math.floor(sec || 0));
+  var mins = Math.floor(sec / 60), h = Math.floor(mins / 60), m = mins % 60;
+  return h === 0 ? m + 'm' : h + 'h ' + pad(m) + 'm';
+}
+function fmtSigned(sec) {
+  if (Math.abs(sec) < 60) return '0m';
+  return (sec < 0 ? '&minus;' : '+') + fmtDur(Math.abs(sec));
+}
+function signedHtml(sec) {
+  var cls = Math.abs(sec) < 60 ? '' : (sec < 0 ? 'bad' : 'good');
+  return '<span class="' + cls + '">' + fmtSigned(sec) + '</span>';
+}
+function hm(sec) { sec = Math.floor(Math.abs(sec || 0) / 60); return Math.floor(sec / 60) + ':' + pad(sec % 60); }
+function dayShort(d) { d = parseIso(d); return DOW[d.getDay()] + ', ' + d.getDate() + ' ' + MON[d.getMonth()]; }
+function dayLong(d) { d = parseIso(d); return DOW_LONG[d.getDay()] + ', ' + d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear(); }
+function rangeLabel(a, b) {
+  a = parseIso(a); b = parseIso(b);
+  if (a.getMonth() === b.getMonth()) return a.getDate() + NDASH + b.getDate() + ' ' + MON[b.getMonth()];
+  return a.getDate() + ' ' + MON[a.getMonth()] + NDASH + b.getDate() + ' ' + MON[b.getMonth()];
+}
+function plural(n, w) { return (Math.round(n * 10) / 10) + ' ' + w + (n === 1 ? '' : 's'); }
+function secsBetween(a, b) { return Math.max(0, (parseIso(b) - parseIso(a)) / 1000); }
+function counts(kind) {
+  var s = app.S ? app.S.settings : {};
+  if (kind === 'Work') return true;
+  if (kind === 'Lunch') return !!s.LunchCounts;
+  if (kind === 'Break') return !!s.BreaksCount;
+  return false;
+}
+function hoursLabel() { return app.S ? fmtDur(app.S.settings.DailyHours * 3600) : '9h'; }
+
+/* ======================= talking to the tracker (everything stays on this laptop) ======================= */
+function route(path, body) {
+  if (!T) throw new Error('The tracker has not started yet.');
+  var now = Date.now(), qi = path.indexOf('?'), p = qi >= 0 ? path.slice(0, qi) : path, q = new URLSearchParams(qi >= 0 ? path.slice(qi + 1) : '');
+  switch (p) {
+    case '/api/state': return T.stateData(now);
+    case '/api/range': return T.rangeData(q.get('from'), q.get('to'), now, q.get('light') === '1');
+    case '/api/holidays':
+      if (!body) return T.holidayData();
+      var h = JSON.parse(JSON.stringify(T.holidays)), years = (body.replaceYears || []).map(String), added = 0;
+      if (years.length) Object.keys(h).forEach(function (k) { if (years.indexOf(k.slice(0, 4)) >= 0) delete h[k]; });
+      (body.items || []).forEach(function (it) { if (it && /^\d{4}-\d{2}-\d{2}$/.test(it.d)) { h[it.d] = String(it.name || '').trim().slice(0, 120) || 'Holiday'; added++; } });
+      T.setHolidays(h);
+      return { ok: true, added: added, holidays: T.holidayData() };
+    case '/api/holidays/delete':
+      var h2 = JSON.parse(JSON.stringify(T.holidays));
+      if (body && body.year) Object.keys(h2).forEach(function (k) { if (k.slice(0, 4) === String(body.year)) delete h2[k]; });
+      ((body && body.dates) || []).forEach(function (d) { delete h2[d]; });
+      T.setHolidays(h2);
+      return { ok: true, holidays: T.holidayData() };
+    case '/api/break': T.breakAction(body.what, now); break;
+    case '/api/mark': T.addMark(parseIsoMs(body.from), parseIsoMs(body.to), body.kind, body.note || ''); closeAwayNote(); break;
+    case '/api/day': T.setDayStatus(parseIsoMs(body.date), body.status); break;
+    case '/api/settings': T.saveSettings(Object.assign({}, T.S, body)); startIdle(); break;
+    default: throw new Error('Unknown request');
+  }
+  handleNotices();
+  return T.stateData(Date.now());
+}
+function api(path, body) { return new Promise(function (ok, bad) { try { ok(route(path, body)); } catch (e) { bad(e); } }); }
+function act(path, body, okMsg) {
+  return api(path, body).then(function (st) {
+    if (st && st.today) { app.S = st; app.fetchedAt = Date.now(); }
+    if (okMsg) toast(okMsg);
+    renderLive(); updateTitle(); updateBadge();
+    if (app.view === 'today') renderToday();
+    if (app.view === 'reports') loadReport();
+    if (app.view === 'leave') loadLeave();
+    refreshDayModal();
+    return st;
+  }, function (e) { toast(e.message, true); throw e; });
+}
+function refresh() {
+  if (!T || !rt.started) return Promise.resolve();
+  var st;
+  try { st = T.stateData(Date.now()); } catch (e) { return Promise.resolve(); }
+  var verChanged = !app.S || st.ver !== app.S.ver;
+  app.S = st; app.fetchedAt = Date.now();
+  renderLive(); updateTitle(); updateBadge();
+  if (rt.wizStep || !rt.owner) return Promise.resolve();
+  if (app.view === 'today' && !app.menuOpen) renderToday();
+  if (app.view === 'settings' && !app.settingsRendered) renderSettings();
+  if (verChanged) {
+    if (app.view === 'reports') loadReport();
+    if (app.view === 'leave') loadLeave();
+  }
+  return Promise.resolve();
+}
+function setOffline() {}
+function permBanner() {
+  return '';
+  var I = rt.idle;
+  if (!T || I.on || T.S.AwayMinutes <= 0 || !rt.started) return '';
+  if (I.perm === 'unsupported') return '<div class="banner"><div class="b-text"><b>Time away cannot be noticed in this browser</b><span>Open TrackMyTime in Microsoft Edge so lunch with the lid closed is noticed automatically.</span></div></div>';
+  if (I.perm === 'denied') return '<div class="banner"><div class="b-text"><b>Away detection is blocked</b><span>In Edge, open Settings &rsaquo; Cookies and site permissions &rsaquo; Idle detection, and allow it. Until then, use Start lunch / Start break.</span></div></div>';
+  if (I.perm === 'unknown') return '';
+  return '<div class="banner"><div class="b-text"><b>Turn on away detection</b><span>So lunch with the lid closed is noticed automatically. Edge will ask once &mdash; click Allow.</span></div><button class="btn btn-sm btn-primary" data-act="idle-allow">Turn on</button></div>';
+}
+
+/* ======================= running inside Edge: saving, away detection, start-up ======================= */
+var T = null;   // the tracker engine
+var rt = {
+  owner: false, started: false, setup: 'done', setupDone: false, wizStep: null, lastBackup: 0, allowClose: false,
+  lastSeenWrite: 0, lastUi: 0, lastBackupCheck: 0, resumed: false, worker: null, timer: null, awayNote: null,
+  pendingImport: null, iconUrl: '',
+  idle: { supported: typeof window.IdleDetector === 'function', perm: 'unknown', on: false, active: true, since: 0, ctl: null }
+};
+function parseIsoMs(s) { var d = parseIso(s); return d ? d.getTime() : null; }
+function word(n, one, many) { n = Math.round(n * 10) / 10; return n + ' ' + (n === 1 ? one : many); }
+
+/* ---------- saving on this laptop (inside Edge) ---------- */
+var DB = {
+  db: null,
+  open: function () {
+    return new Promise(function (ok, bad) {
+      var q = indexedDB.open(isFile() ? 'my-time-tracker' : 'trackmytime', 1);
+      q.onupgradeneeded = function () { q.result.createObjectStore('kv'); };
+      q.onsuccess = function () { DB.db = q.result; ok(); };
+      q.onerror = function () { bad(q.error || new Error('Edge could not open its storage.')); };
+    });
+  },
+  get: function (k) {
+    return new Promise(function (ok) {
+      try { var r = DB.db.transaction('kv').objectStore('kv').get(k); r.onsuccess = function () { ok(r.result); }; r.onerror = function () { ok(undefined); }; }
+      catch (e) { ok(undefined); }
+    });
+  },
+  set: function (k, v) {
+    return new Promise(function (ok) {
+      try { var tx = DB.db.transaction('kv', 'readwrite'); tx.objectStore('kv').put(v, k); tx.oncomplete = function () { ok(true); }; tx.onerror = function () { ok(false); }; }
+      catch (e) { ok(false); }
+    });
+  }
+};
+var saveWarned = false;
+function saveNow(what) {
+  if (!T || !rt.owner) return;
+  var jobs = [];
+  if (what === 'log' || what === 'all') jobs.push(DB.set('lines', T.lines.slice()));
+  if (what === 'holidays' || what === 'all') jobs.push(DB.set('holidays', JSON.parse(JSON.stringify(T.holidays))));
+  if (what === 'settings' || what === 'all') jobs.push(DB.set('settings', JSON.parse(JSON.stringify(T.S))));
+  Promise.all(jobs).then(function (r) {
+    if (r.indexOf(false) >= 0 && !saveWarned) { saveWarned = true; toast('Edge could not save your latest change. Please download a backup from Settings.', true); }
+  });
+}
+function writeSeen(syncOnly) {
+  if (!T || !rt.owner || !rt.started) return;
+  var s = { seen: Date.now(), activity: T.lastActivity };
+  try { localStorage.setItem('tt-seen', JSON.stringify(s)); } catch (e) {}
+  if (!syncOnly) DB.set('seen', s);
+}
+function readSeen() {
+  return DB.get('seen').then(function (a) {
+    var b = null;
+    try { b = JSON.parse(localStorage.getItem('tt-seen') || 'null'); } catch (e) {}
+    if (!a) return b;
+    if (!b) return a;
+    return b.seen > a.seen ? b : a;
+  });
+}
+
+/* ---------- only one window tracks at a time (the newest one) ---------- */
+function takeLock() {
+  return new Promise(function (ok) {
+    if (!navigator.locks) { rt.owner = true; ok(); return; }
+    navigator.locks.request('trackmytime-main', { steal: true }, function () {
+      rt.owner = true; ok();
+      return new Promise(function () {});        // keep it for as long as this window is open
+    }).catch(function () { lostLock(); });
+  });
+}
+function lostLock() {
+  rt.owner = false; rt.started = false; rt.allowClose = true;
+  stopTicker();
+  closeModalAll();
+  document.body.classList.add('wizard');
+  main.innerHTML = '<section class="card pad wiz-card" style="text-align:center"><h2>Tracking moved to another window</h2>' +
+    '<p class="muted" style="margin-top:8px">TrackMyTime is now running in the window you opened most recently. You can close this one.</p>' +
+    '<button class="btn btn-primary" style="margin-top:18px" data-act="close-window">Close this window</button></section>';
+}
+function closeModalAll() { while (app.modals.length) closeModal(); closeMenu(); }
+
+/* ---------- the heartbeat (every second, even when minimised) ---------- */
+function startTicker() {
+  stopTicker();
+  try {
+    var w = new Worker(URL.createObjectURL(new Blob(['setInterval(function(){postMessage(1)},1000);'], { type: 'text/javascript' })));
+    w.onmessage = onTick;
+    rt.worker = w;
+  } catch (e) { rt.timer = setInterval(onTick, 1000); }
+}
+function stopTicker() {
+  if (rt.worker) { try { rt.worker.terminate(); } catch (e) {} }
+  if (rt.timer) clearInterval(rt.timer);
+  rt.worker = null; rt.timer = null;
+}
+function onTick() {
+  if (!T || !rt.owner || !rt.started) return;
+  var now = Date.now();
+  var I = rt.idle, idleMs = (I.on && !I.active) ? now - I.since : 0;
+  var paused = rt.resumed; rt.resumed = false;
+  var v = T.ver;
+  try { T.monitor(now, idleMs, paused); } catch (e) { if (window.console) console.error(e); }
+  handleNotices();
+  if (now - rt.lastSeenWrite >= 10000) { writeSeen(false); rt.lastSeenWrite = now; }
+  var every = document.visibilityState === 'visible' ? 5000 : 60000;
+  if (T.ver !== v || now - rt.lastUi >= every) { rt.lastUi = now; refresh(); }
+  if (now - rt.lastBackupCheck >= 600000) { rt.lastBackupCheck = now; autoBackup(); }
+}
+function updateTitle() {
+  if (!app.S) return;
+  var t = 'TrackMyTime - ' + fmtDur(app.S.today.wk) + ' today';
+  if (document.title !== t) document.title = t;
+}
+
+/* ---------- noticing time away (Edge asks your permission once) ---------- */
+function startIdle() {
+  var I = rt.idle;
+  if (I.ctl) { try { I.ctl.abort(); } catch (e) {} I.ctl = null; }
+  I.on = false; I.active = true;
+  if (!I.supported) { I.perm = 'unsupported'; return Promise.resolve(); }
+  return navigator.permissions.query({ name: 'idle-detection' }).then(function (p) {
+    I.perm = p.state;
+    if (!I.watching) { I.watching = true; p.onchange = function () { startIdle().then(permChanged); }; }
+    if (p.state === 'prompt') return;            // asked only when you click 'Turn it on'
+    if (p.state !== 'granted' || !T || T.S.AwayMinutes <= 0) return;
+    var threshold = Math.max(60000, T.S.AwayMinutes * 60000);
+    var ctl = new AbortController(), det = new window.IdleDetector();
+    det.addEventListener('change', function () {
+      if (det.userState === 'idle') { if (I.active) { I.active = false; I.since = Date.now() - threshold; } }
+      else I.active = true;
+    });
+    return det.start({ threshold: threshold, signal: ctl.signal }).then(function () {
+      I.ctl = ctl; I.on = true; I.err = '';
+      if (det.userState === 'idle') { I.active = false; I.since = Date.now() - threshold; }
+    });
+  }).catch(function (e) {
+    I.on = false; I.err = (e && e.message) || 'unknown problem';
+    clearTimeout(I.retry); I.retry = setTimeout(function () { startIdle().then(permChanged); }, 60000);   // try again quietly
+  });
+}
+// If Edge did not keep the permission, ask again on your next click anywhere (Edge only allows asking after a click).
+function armAutoAsk() {
+  if (rt.autoAsk || !rt.idle.supported) return;
+  rt.autoAsk = function () {
+    document.removeEventListener('pointerdown', rt.autoAsk, true);
+    document.removeEventListener('keydown', rt.autoAsk, true);
+    rt.autoAsk = null;
+    if (rt.idle.perm !== 'prompt' || rt.wizStep) return;
+    window.IdleDetector.requestPermission().then(function (r) {
+      rt.idle.perm = r;
+      if (r === 'granted') { toast('Away detection is on'); return startIdle(); }
+    }).catch(function () {}).then(permChanged);
+  };
+  document.addEventListener('pointerdown', rt.autoAsk, true);
+  document.addEventListener('keydown', rt.autoAsk, true);
+}
+function askIdle() {
+  if (!rt.idle.supported) { toast('This browser cannot notice time away. Please use Microsoft Edge.', true); return Promise.resolve(); }
+  return window.IdleDetector.requestPermission().then(function (r) {
+    rt.idle.perm = r;
+    if (r === 'granted') { toast('Away detection is on'); return startIdle(); }
+    toast('Away detection was not allowed. You can turn it on later in Settings.', true);
+  }).catch(function (e) { toast(e.message, true); }).then(permChanged);
+}
+function isFile() { return location.protocol === 'file:'; }
+function notifyPerm() { if (isFile()) return 'file'; return ('Notification' in window) ? Notification.permission : 'unsupported'; }
+function askNotify() {
+  if (!('Notification' in window) || isFile()) return Promise.resolve();
+  return Notification.requestPermission().then(function (r) {
+    toast(r === 'granted' ? 'Notifications are on' : 'Notifications were not allowed', r !== 'granted');
+  }).then(permChanged);
+}
+function permChanged() {
+  if (rt.wizStep) renderWizard();
+  else if (app.view === 'settings') renderSettings();
+  else if (app.view === 'today') renderToday();
+}
+function notify(title, body, sticky, data) {
+  if (notifyPerm() !== 'granted') return null;
+  var tag = sticky ? 'tt-away' : 'tt-tip';
+  if (rt.swReg && rt.swReg.showNotification) {
+    var opts = { body: body, tag: tag, requireInteraction: !!sticky, icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', data: data || {} };
+    if (sticky && data) opts.actions = [{ action: 'Lunch', title: 'Lunch' }, { action: 'Work', title: 'I was working' }];
+    rt.swReg.showNotification(title, opts).catch(function () {});
+    return { close: function () { if (rt.swReg.getNotifications) rt.swReg.getNotifications({ tag: tag }).then(function (ns) { ns.forEach(function (x) { x.close(); }); }).catch(function () {}); } };
+  }
+  try {
+    var n = new Notification(title, { body: body, tag: sticky ? 'tt-away' : 'tt-tip', requireInteraction: !!sticky, icon: rt.iconUrl || undefined });
+    n.onclick = function () { try { window.focus(); } catch (e) {} n.close(); if (location.hash !== '#today') location.hash = '#today'; };
+    return n;
+  } catch (e) { return null; }
+}
+function closeAwayNote() { if (rt.awayNote) { try { rt.awayNote.close(); } catch (e) {} rt.awayNote = null; } }
+function handleNotices() {
+  if (!T) return;
+  while (T.notices.length) {
+    var n = T.notices.shift();
+    if (n.type === 'tip') {
+      toast(n.text);
+      if (document.visibilityState !== 'visible') notify('TrackMyTime', n.text, false);
+    } else if (n.type === 'prompt') {
+      var how = n.how === 'off' ? ' (laptop off)' : n.how === 'asleep' ? ' (laptop asleep)' : '';
+      var txt = 'You were away' + how + ' from ' + fmtTimeText(TTEngine.iso(n.a)) + ' to ' + fmtTimeText(TTEngine.iso(n.b)) +
+        ' (' + fmtDur((n.b - n.a) / 1000) + '). ' + (rt.swReg ? 'What was it?' : 'Click here to mark it as lunch, a break or work.');
+      if (T.S.AskOnReturn) { closeAwayNote(); rt.awayNote = notify('Welcome back', txt, true, { a: n.a, b: n.b }); }
+      if (app.view === 'today' && !rt.wizStep) renderToday();
+    }
+  }
+}
+function makeIcon() {
+  try {
+    var c = document.createElement('canvas'); c.width = c.height = 128;
+    var g = c.getContext('2d');
+    g.fillStyle = '#2a78d6'; g.beginPath(); g.arc(64, 64, 60, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#fff'; g.lineWidth = 12; g.lineCap = 'round'; g.lineJoin = 'round';
+    g.beginPath(); g.moveTo(64, 28); g.lineTo(64, 64); g.lineTo(92, 64); g.stroke();
+    rt.iconUrl = c.toDataURL('image/png');
+  } catch (e) {}
+}
+
+/* ---------- backups ---------- */
+function downloadText(name, text, type) {
+  var blob = new Blob([text], { type: type || 'application/json' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 3000);
+}
+function backupNow(auto) {
+  if (!T) return;
+  downloadText('TrackMyTime backup ' + ymd(new Date()) + '.json', T.backupText(Date.now()));
+  rt.lastBackup = Date.now(); DB.set('lastBackup', rt.lastBackup);
+  if (!auto) toast('Backup saved to your Downloads folder');
+  if (app.view === 'settings' && !rt.wizStep && !app.settingsDirty) renderSettings();
+}
+function autoBackup() {
+  if (!T || !rt.owner || !rt.setupDone || !T.S.AutoBackup || T.lines.length < 3) return;
+  if (Date.now() - (rt.lastBackup || 0) < 7 * 86400000) return;
+  backupNow(true);
+}
+
+/* ---------- bringing in data from the old Windows version or a backup ---------- */
+function importPanel() {
+  return '<div class="imp-opts">' +
+    '<div class="imp-opt"><b>From the &ldquo;My Time Tracker&rdquo; file</b><span class="muted small">the one that opened in Edge from your laptop</span>' +
+      '<ol class="steps"><li>Open it, go to <b>Settings</b> and click <b>Download a backup</b>.</li><li>Here, click <b>Choose backup file</b> and pick it from your <b>Downloads</b> folder.</li></ol>' +
+      '<button class="btn btn-primary" data-act="imp-files">Choose backup file</button></div>' +
+    '<div class="imp-opt"><b>From the first Windows version</b><span class="muted small">the clock icon near the time</span>' +
+      '<ol class="steps"><li>Stop it: double-click your old <b>MyTimeTracker-Setup.cmd</b> and choose <b>No</b>.</li><li>Click <b>Choose folder</b> and pick Documents &rsaquo; <b>My Time Tracker</b>.</li></ol>' +
+      '<button class="btn" data-act="imp-folder">Choose folder</button></div></div>' +
+    '<input type="file" id="imp-input" multiple accept=".json,.csv,.txt" hidden><div id="imp-result" aria-live="polite"></div>';
+}
+function pickFolder() {
+  if (!window.showDirectoryPicker) { pickFiles(); return; }
+  window.showDirectoryPicker({ id: 'tt-import', mode: 'read', startIn: 'documents' }).then(function (dir) {
+    var files = {}, jobs = [], it = dir.values();
+    function next() {
+      return it.next().then(function (r) {
+        if (r.done) return;
+        var e = r.value;
+        if (e.kind === 'file' && /\.(csv|json|txt)$/i.test(e.name)) {
+          jobs.push(e.getFile().then(function (f) { return f.text().then(function (t) { files[e.name] = t; }); }));
+        }
+        return next();
+      });
+    }
+    return next().then(function () { return Promise.all(jobs); }).then(function () { prepareImport(files); });
+  }).catch(function (e) { if (e && e.name !== 'AbortError') toast(e.message, true); });
+}
+function pickFiles() {
+  var inp = document.getElementById('imp-input');
+  if (!inp) return;
+  inp.value = '';
+  inp.onchange = function () {
+    var files = {};
+    Promise.all([].map.call(inp.files, function (f) { return f.text().then(function (t) { files[f.name] = t; }); })).then(function () { prepareImport(files); });
+  };
+  inp.click();
+}
+function classifyFiles(files) {
+  var out = {};
+  Object.keys(files).forEach(function (name) {
+    var n = name.toLowerCase(), t = files[name];
+    if (/\.json$/.test(n) && /"log"\s*:/.test(t)) out.backup = t;
+    else if (/setting/.test(n) && /\.json$/.test(n)) out.settings = t;
+    else if (/holiday/.test(n)) out.holidays = t;
+    else if (/(laptop on|laptop off|marked as|break start|lunch start|leave day)/i.test(t)) out.timelog = t;
+  });
+  return out;
+}
+function prepareImport(files) {
+  var box = document.getElementById('imp-result');
+  if (!box) return;
+  var c = classifyFiles(files);
+  rt.pendingImport = null;
+  if (!c.timelog && !c.backup && !c.holidays) {
+    box.innerHTML = '<p class="err-text">No hours were found there. Choose your backup file (TrackMyTime backup&hellip; or My Time Tracker backup&hellip;), or the folder Documents &rsaquo; My Time Tracker that has TimeLog.csv.</p>';
+    syncImportButtons(); return;
+  }
+  var r;
+  try { r = new TTEngine.Tracker({}).importData(c, Date.now()); }
+  catch (e) { box.innerHTML = '<p class="err-text">' + esc(e.message) + '</p>'; syncImportButtons(); return; }
+  rt.pendingImport = c;
+  var range = r.first ? ' from ' + dayShort(TTEngine.iso(r.first)) + ' to ' + dayShort(TTEngine.iso(r.last)) : '';
+  box.innerHTML = '<div class="imp-ok"><b>Found your data</b><span>' + word(r.entries, 'entry', 'entries') + range +
+    (r.holidays ? ' &middot; ' + word(r.holidays, 'holiday', 'holidays') : '') + (r.settings ? ' &middot; your settings' : '') + '</span></div>';
+  syncImportButtons();
+}
+function syncImportButtons() {
+  syncWizImport();
+  document.querySelectorAll('[data-act="imp-do"]').forEach(function (b) { b.disabled = !rt.pendingImport; });
+}
+function doImport() {
+  var c = rt.pendingImport;
+  if (!c || !T) return null;
+  var r;
+  try { r = T.importData(c, Date.now()); } catch (e) { toast(e.message, true); return null; }
+  rt.pendingImport = null;
+  saveNow('all');
+  if (!rt.started) startTracking(r.runningToday ? { seen: Date.now(), activity: Date.now() } : null);
+  toast('Imported ' + word(r.entries, 'entry', 'entries'));
+  return r;
+}
+function openImport() {
+  rt.pendingImport = null;
+  openModal(modalHead('Import or restore your hours', 'From a backup file or an earlier version. Nothing you have now is lost &mdash; the two are combined.') +
+    '<div class="modal-body">' + importPanel() + '</div>' +
+    '<div class="modal-foot"><button class="btn" data-act="close-modal">Cancel</button><button class="btn btn-primary" data-act="imp-do" disabled>Import</button></div>', { wide: true });
+}
+
+/* ---------- starting automatically when you sign in ---------- */
+function startCmd(alt) {
+  var url = location.href.split('#')[0].split('?')[0];
+  return '"%ProgramFiles' + (alt ? '' : '(x86)') + '%\\Microsoft\\Edge\\Application\\msedge.exe" --app="' + url + '"';
+}
+function autostartHtml() {
+  return '<ol class="steps">' +
+    '<li>Click <b>Copy</b> to copy this line:<div class="cmd-row"><code class="cmd" id="cmd-line">' + esc(startCmd(false)) + '</code><button class="btn btn-sm btn-primary" data-act="copy-cmd">Copy</button></div></li>' +
+    '<li>Open your <b>Start-up folder</b>: press the <b>Windows key</b> and <b>R</b> together, type <b>shell:startup</b> and press <b>Enter</b>. ' +
+    '<span class="hint">(This only opens a folder &mdash; it does not run anything. Or open File Explorer and paste <b>%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup</b> into the address bar at the top.)</span></li>' +
+    '<li>If you see an old <b>My Time Tracker</b> shortcut in that folder, delete it (that is the old version).</li>' +
+    '<li>Right-click an empty area in the folder &rsaquo; <b>New</b> &rsaquo; <b>Shortcut</b>.</li>' +
+    '<li>Press <b>Ctrl + V</b> to paste the line, click <b>Next</b>, type <b>My Time Tracker</b>, and click <b>Finish</b>.</li>' +
+    '<li>Double-click the new shortcut once. The tracker opens in its own window and keeps running from there. You can close this tab.</li></ol>' +
+    '<p class="hint" style="margin-top:10px"><b>Keep the tracker window open</b> &mdash; minimise it instead of closing it. Closing it stops tracking until you sign in again (or double-click the shortcut).</p>' +
+    '<p class="hint" style="margin-top:10px">Tip: right-click the shortcut &rsaquo; Send to &rsaquo; Desktop to keep one on your Desktop too. ' +
+    'If Windows says it cannot find the file in step 5, <a href="#" data-act="copy-cmd-alt">copy this other line</a> instead.</p>' +
+    '<p class="hint">Keep this file where it is now. If you move it, set up the shortcut again.</p>';
+}
+function copyText(t) {
+  var done = function () { toast('Copied'); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, function () { fallbackCopy(t); done(); });
+  else { fallbackCopy(t); done(); }
+}
+function fallbackCopy(t) {
+  var ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); } catch (e) {}
+  ta.remove();
+}
+function installHtml() {
+  var h = '<ol class="steps">';
+  if (!rt.standalone) {
+    h += '<li><b>Install TrackMyTime as an app.</b> ' + (rt.installEvt ? '<button class="btn btn-sm btn-primary" data-act="install">Install TrackMyTime</button>' :
+      'In Edge, click the <b>&hellip;</b> menu at the top-right &rsaquo; <b>Apps</b> &rsaquo; <b>Install TrackMyTime</b>.') + ' Then click <b>Install</b>.</li>' +
+      '<li>In the small <b>App installed</b> box that Edge shows next, tick <b>Auto-start on device login</b> (and <b>Pin to taskbar</b> if you like), then click <b>Allow</b>.</li>' +
+      '<li>TrackMyTime opens in its own window and keeps running from there. You can close this browser tab.</li>';
+  } else {
+    h += '<li>You are in the TrackMyTime app. To make it open by itself every time you sign in: open Edge, type <b>edge://apps</b> in the address bar, click the <b>&hellip;</b> on TrackMyTime and turn on <b>Start app when you sign in</b> (also called <b>Auto-start on device login</b>).</li>';
+  }
+  h += '<li><b>Remove the old start-up shortcut</b> if you made one for the My Time Tracker file: press <b>Windows key + E</b>, type <b>shell:startup</b> in the address bar at the top, press <b>Enter</b>, and delete the <b>My Time Tracker</b> shortcut there.</li></ol>' +
+    '<p class="hint" style="margin-top:10px">Missed the Auto-start box? Open Edge, type <b>edge://apps</b> in the address bar, click <b>&hellip;</b> on TrackMyTime and turn on <b>Start app when you sign in</b>.</p>' +
+    '<p class="hint"><b>Keep the TrackMyTime window open</b> &mdash; minimise it instead of closing it.</p>';
+  return h;
+}
+function doInstall() {
+  if (!rt.installEvt) { toast('Use the Edge menu: ... > Apps > Install TrackMyTime', true); return; }
+  var e = rt.installEvt; rt.installEvt = null;
+  e.prompt();
+  e.userChoice.then(function (c) { if (c && c.outcome === 'accepted') toast('Installing TrackMyTime...'); if (rt.wizStep) renderWizard(); });
+}
+function openAutostart() {
+  openModal(modalHead(isFile() ? 'Start automatically when you sign in' : 'Install TrackMyTime and start it automatically', 'One-time setup. After this, TrackMyTime opens by itself every time you sign in to Windows.') +
+    '<div class="modal-body">' + (isFile() ? autostartHtml() : installHtml()) + '</div><div class="modal-foot"><button class="btn btn-primary" data-act="close-modal">Done</button></div>', { wide: true });
+}
+function badLocation() {
+  var p = decodeURIComponent(location.pathname).toLowerCase();
+  return /\/downloads\/|\/temp\/|\/appdata\/|\/inetcache\/|microsoftteams|\/content\.outlook\//.test(p);
+}
+
+/* ---------- first-time setup ---------- */
+function setStep(s) { rt.wizStep = s; if (DB.db) DB.set('setup', s || 'done'); renderWizard(); }
+function permRow(name, sub, state, act) {
+  var on = state === 'granted';
+  if (on && act === 'idle-allow' && !rt.idle.on && rt.idle.err) sub += '<br><span class="bad">Allowed, but Edge could not start it (' + esc(rt.idle.err) + '). Trying again every minute.</span>';
+  var btn = on ? '<span class="chip-on">&#10003; On</span>' :
+    state === 'unsupported' ? '<span class="muted small">Not available &mdash; use Microsoft Edge</span>' :
+    state === 'file' ? '<span class="muted small">Not available for a file on your laptop</span>' :
+    state === 'denied' ? '<span class="muted small">Blocked in Edge settings</span>' :
+    '<button class="btn btn-sm btn-primary" data-act="' + act + '">Allow</button>';
+  return '<div class="perm"><div><b>' + name + '</b><span>' + sub + '</span></div>' + btn + '</div>';
+}
+function renderWizard() {
+  if (!rt.wizStep) return;
+  document.body.classList.add('wizard');
+  var s = rt.wizStep, idx = { move: 0, import: 1, perms: 2, start: 3 }[s];
+  var dots = ['Your data', 'Permissions', isFile() ? 'Start automatically' : 'Install &amp; auto-start'].map(function (l, i) {
+    return '<span class="wz-step' + (i + 1 === idx ? ' cur' : i + 1 < idx ? ' done' : '') + '"><i>' + (i + 1 < idx ? '&#10003;' : i + 1) + '</i>' + l + '</span>';
+  }).join('');
+  var h = '<div class="wiz"><div class="wz-head"><h2>Welcome to TrackMyTime</h2><p class="muted">Three quick steps and you never have to start it again.</p><div class="wz-steps">' + dots + '</div></div>';
+  if (!/Edg\//.test(navigator.userAgent)) {
+    h += '<div class="banner" style="margin-bottom:16px"><div class="b-text"><b>Please open ' + (isFile() ? 'this file' : 'this link') + ' in Microsoft Edge</b><span>' + (isFile() ? 'It opened in a different browser. Close this, then right-click the file &rsaquo; <b>Open with</b> &rsaquo; <b>Microsoft Edge</b>.' : 'It opened in a different browser. Copy the address at the top, open <b>Microsoft Edge</b> and paste it there.') + ' (The automatic start uses Edge, and each browser keeps its own data.)</span></div></div>';
+  }
+  h += '<section class="card pad wiz-card">';
+  if (s === 'move') {
+    h += '<h3>First, put this file somewhere permanent</h3><p class="muted" style="margin-top:6px">It is in a temporary place (like Downloads), which often gets cleaned up.</p>' +
+      '<ol class="steps"><li>Open <b>File Explorer</b> and go to <b>Documents</b>. Make a folder called <b>My Time Tracker</b> if it is not there already.</li>' +
+      '<li>Move this file (<b>My Time Tracker.html</b>) into that folder.</li><li>Double-click it there to open it again, and close this tab.</li></ol>' +
+      '<div class="wz-foot"><span class="spacer"></span><button class="btn" data-act="wiz-go" data-to="import">It is fine where it is</button></div>';
+  } else if (s === 'import') {
+    h += '<h3>Used My Time Tracker before?</h3><p class="muted" style="margin-top:6px">Bring all your hours, holidays and settings across in one go. If you are new, just start fresh.</p>' +
+      importPanel() +
+      '<div class="wz-foot"><button class="btn btn-ghost" data-act="wiz-fresh">I am new &mdash; start fresh</button><span class="spacer"></span><button class="btn btn-primary" data-act="wiz-import" disabled data-imp="1">Import and continue</button></div>';
+  } else if (s === 'perms') {
+    h += '<h3>' + (isFile() ? 'Allow one thing' : 'Allow two things') + '</h3><p class="muted" style="margin-top:6px">Click <b>Allow</b>, then click <b>Allow</b> again in the small Edge question at the top.</p><div class="perms">' +
+      permRow('Notice when you are away', 'So lunch with the lid closed is noticed automatically. Only on/off activity is seen &mdash; never what you type.', rt.idle.supported ? rt.idle.perm : 'unsupported', 'idle-allow') +
+      permRow('Notifications', isFile() ? 'Edge does not allow pop-up notifications for a file on your laptop. The &ldquo;Welcome back &mdash; was it lunch?&rdquo; question appears at the top of the Today screen instead.' : 'So a &ldquo;Welcome back &mdash; was it lunch?&rdquo; message can pop up when you return.', notifyPerm(), 'notif-allow') + '</div>' +
+      '<div class="wz-foot"><span class="spacer"></span><button class="btn btn-primary" data-act="wiz-go" data-to="start">Continue</button></div>';
+  } else {
+    h += (isFile() ? '<h3>Start automatically every time you sign in</h3><p class="muted" style="margin-top:6px">A one-time shortcut in Windows&rsquo; start-up folder. About a minute.</p>' + autostartHtml() :
+      '<h3>Install TrackMyTime and start it automatically</h3><p class="muted" style="margin-top:6px">It becomes a normal app with its own window and taskbar icon, and opens by itself every time you sign in.</p>' + installHtml()) +
+      '<div class="wz-foot"><span class="spacer"></span><button class="btn btn-primary" data-act="wiz-done">Done &mdash; open the tracker</button></div>';
+  }
+  main.innerHTML = h + '</section></div>';
+  if (s === 'import') { var b = main.querySelector('[data-imp]'); if (b) b.setAttribute('data-act', 'wiz-import'); syncWizImport(); }
+}
+function syncWizImport() { var b = main.querySelector('[data-imp]'); if (b) b.disabled = !rt.pendingImport; }
+function finishSetup() {
+  rt.wizStep = null; rt.setupDone = true;
+  if (!rt.lastBackup) { rt.lastBackup = Date.now(); DB.set('lastBackup', rt.lastBackup); }
+  DB.set('setup', 'done'); DB.set('setupDone', true);
+  enterApp();
+}
+function enterApp() {
+  document.body.classList.remove('wizard');
+  refresh();
+  setView(viewFromHash());
+}
+function startTracking(seen) {
+  var res = T.startSession(Date.now(), seen);
+  rt.started = true; rt.lastSeenWrite = 0;
+  writeSeen(false);
+  startIdle().then(function () { if (!rt.wizStep && app.view === 'today') renderToday(); });
+  handleNotices();
+  refresh();
+  return res;
+}
+function quitTracking() {
+  if (!confirm('Stop tracking your time?\n\nTrackMyTime starts again the next time you sign in to Windows (or when you open it).')) return;
+  T.stopTracking(Date.now());
+  saveNow('log');
+  rt.started = false; rt.allowClose = true;
+  stopTicker();
+  try { localStorage.removeItem('tt-seen'); } catch (e) {}
+  window.close();
+  setTimeout(function () {
+    document.body.classList.add('wizard');
+    main.innerHTML = '<section class="card pad wiz-card" style="text-align:center"><h2>Tracking stopped</h2><p class="muted" style="margin-top:8px">You can close this window. It starts again the next time you sign in.</p>' +
+      '<button class="btn btn-primary" style="margin-top:18px" data-act="restart">Start tracking again</button></section>';
+  }, 300);
+}
+function fatal(msg) {
+  document.body.classList.add('wizard');
+  main.innerHTML = '<section class="card pad wiz-card"><h2>Sorry</h2><p style="margin-top:8px">' + esc(msg) + '</p></section>';
+}
+
+window.addEventListener('beforeunload', function (e) {
+  writeSeen(true);
+  if (rt.started && rt.owner && !rt.allowClose) { e.preventDefault(); e.returnValue = ''; }
+});
+window.addEventListener('pagehide', function () { writeSeen(true); });
+document.addEventListener('freeze', function () { writeSeen(true); });
+document.addEventListener('resume', function () { rt.resumed = true; });
+
+function boot() {
+  registerSW();
+  applyTheme(themePref());
+  app.view = viewFromHash();
+  document.querySelectorAll('.tabs a').forEach(function (a) { if (a.dataset.v === app.view) a.setAttribute('aria-current', 'page'); });
+  if (!window.indexedDB) { fatal('This browser cannot save data. Please open TrackMyTime in Microsoft Edge.'); return; }
+  takeLock().then(function () { return DB.open(); }).then(function () {
+    return Promise.all([DB.get('lines'), DB.get('holidays'), DB.get('settings'), DB.get('setup'), DB.get('lastBackup'), readSeen()]);
+  }).then(function (r) {
+    T = new TTEngine.Tracker({ lines: r[0], holidays: r[1] || {}, settings: r[2] });
+    T.onChange = saveNow;
+    rt.lastBackup = r[4] || 0;
+    var hasData = !!(r[0] && r[0].length > 1);
+    var step = r[3] || (hasData ? 'done' : null);
+    makeIcon();
+    startTicker();
+    if (hasData) { startTracking(r[5]); hashMark(); }
+    if (step === 'done') { rt.setupDone = true; enterApp(); return; }
+    if (!step || step === 'move' || step === 'import') step = hasData ? 'perms' : (isFile() && badLocation() ? 'move' : 'import');
+    rt.wizStep = step;
+    renderWizard();
+  }).catch(function (e) { fatal('TrackMyTime could not start: ' + (e && e.message ? e.message : e)); });
+}
+function updateBadge() {
+  var n = 0;
+  if (app.S && app.S.pending) app.S.pending.forEach(function (p) { if (secsBetween(p.s, p.e) >= 300) n++; });
+  if (n === rt.badge) return;
+  rt.badge = n;
+  try { if (n && navigator.setAppBadge) navigator.setAppBadge(n); else if (!n && navigator.clearAppBadge) navigator.clearAppBadge(); } catch (e) {}
+}
+function registerSW() {
+  rt.standalone = !!(window.matchMedia && (matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: window-controls-overlay)').matches));
+  if (isFile() || !('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('sw.js').then(function () { return navigator.serviceWorker.ready; }).then(function (reg) { rt.swReg = reg; }).catch(function () {});
+  navigator.serviceWorker.addEventListener('message', function (e) { applyMark(e.data || {}); });
+}
+// The Lunch / I was working buttons on the Windows pop-up arrive here (from sw.js)
+function applyMark(m) {
+  if (m.type === 'mark') {
+    if (!T || !rt.owner || !rt.started || !(m.a > 0) || !(m.b > m.a) || (m.kind !== 'Lunch' && m.kind !== 'Work')) return;
+    var word = m.kind === 'Work' ? 'working time' : 'lunch';
+    act('/api/mark', { from: TTEngine.iso(m.a), to: TTEngine.iso(m.b), kind: m.kind }, 'Saved as ' + word).then(function () {
+      notify('TrackMyTime', 'Saved: ' + fmtTimeText(TTEngine.iso(m.a)) + ' - ' + fmtTimeText(TTEngine.iso(m.b)) + ' counted as ' + word + '.', false);
+    }, function () {});
+  } else if (m.type === 'open') { if (location.hash !== '#today') location.hash = '#today'; }
+}
+// If the window was closed when a pop-up button was clicked, sw.js opens it as ...#mark-Lunch-<from>-<to>
+function hashMark() {
+  var m = /^#mark-(Lunch|Work)-(\d+)-(\d+)$/.exec(location.hash || '');
+  if (!m) return;
+  try { history.replaceState(null, '', location.pathname + location.search + '#today'); } catch (e) { location.hash = '#today'; }
+  applyMark({ type: 'mark', kind: m[1], a: +m[2], b: +m[3] });
+}
+window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); rt.installEvt = e; if (rt.wizStep === 'start') renderWizard(); });
+window.addEventListener('appinstalled', function () { rt.installEvt = null; toast('TrackMyTime is installed'); });
+window.__tt = { tracker: function () { return T; }, rt: rt };
+
+
+/* ======================= toast, tooltip, menus, modals ======================= */
+var toastTimer = null;
+function toast(msg, err) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (err ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { t.className = 'toast' + (err ? ' err' : ''); }, err ? 5200 : 2600);
+}
+var tipEl = document.getElementById('tip');
+document.addEventListener('mouseover', function (e) {
+  var el = e.target.closest ? e.target.closest('[data-tip]') : null;
+  if (!el) { tipEl.className = 'tip'; return; }
+  tipEl.innerHTML = el.getAttribute('data-tip');
+  tipEl.className = 'tip show';
+});
+document.addEventListener('mousemove', function (e) {
+  if (tipEl.className.indexOf('show') < 0) return;
+  var w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+  var x = e.clientX + 14, y = e.clientY - h - 12;
+  if (x + w > window.innerWidth - 8) x = e.clientX - w - 14;
+  if (y < 8) y = e.clientY + 18;
+  tipEl.style.left = x + 'px'; tipEl.style.top = y + 'px';
+});
+
+function closeMenu() {
+  var m = document.querySelector('.menu');
+  if (m) m.remove();
+  app.menuOpen = false;
+}
+function openKindMenu(btn) {
+  closeMenu();
+  var from = btn.dataset.from, to = btn.dataset.to, kind = btn.dataset.kind;
+  var m = document.createElement('div');
+  m.className = 'menu'; m.setAttribute('role', 'menu');
+  var opts = [['Work', 'Working', 'counts'], ['Lunch', 'Lunch', counts('Lunch') ? 'counts' : 'not counted'], ['Break', 'Break', counts('Break') ? 'counts' : 'not counted'], ['Away', 'Not working', 'not counted']];
+  var html = '<div class="mh">' + fmtTime(from) + NDASH + fmtTime(to) + ' counts as&hellip;</div>';
+  opts.forEach(function (o) {
+    html += '<button role="menuitem" data-act="mark" data-from="' + from + '" data-to="' + to + '" data-kind="' + o[0] + '">' +
+      '<span class="dot k-' + o[0] + '"></span>' + o[1] + (o[0] === kind ? ' &#10003;' : '') + '<span class="muted">' + o[2] + '</span></button>';
+  });
+  m.innerHTML = html;
+  document.body.appendChild(m);
+  var r = btn.getBoundingClientRect();
+  var x = Math.min(r.right - m.offsetWidth, window.innerWidth - m.offsetWidth - 8);
+  var y = r.bottom + 6;
+  if (y + m.offsetHeight > window.innerHeight - 8) y = r.top - m.offsetHeight - 6;
+  m.style.left = Math.max(8, x) + 'px'; m.style.top = Math.max(8, y) + 'px';
+  app.menuOpen = true;
+  var first = m.querySelector('button'); if (first) first.focus();
+}
+window.addEventListener('resize', closeMenu);
+window.addEventListener('scroll', closeMenu, true);
+
+function openModal(html, opts) {
+  opts = opts || {};
+  closeMenu();
+  var ov = document.createElement('div');
+  ov.className = 'overlay';
+  ov.innerHTML = '<div class="modal' + (opts.wide ? ' wide' : '') + '" role="dialog" aria-modal="true">' + html + '</div>';
+  ov.addEventListener('mousedown', function (e) { if (e.target === ov) closeModal(); });
+  document.body.appendChild(ov);
+  var rec = { el: ov, opts: opts, prevFocus: document.activeElement };
+  app.modals.push(rec);
+  var f = ov.querySelector('[autofocus]') || ov.querySelector('input,textarea,select,button');
+  if (f) f.focus();
+  return ov;
+}
+function closeModal() {
+  var rec = app.modals.pop();
+  if (!rec) return;
+  rec.el.remove();
+  if (rec.prevFocus && rec.prevFocus.focus) { try { rec.prevFocus.focus(); } catch (e) {} }
+}
+function topModal() { return app.modals.length ? app.modals[app.modals.length - 1] : null; }
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') {
+    if (app.menuOpen) { closeMenu(); return; }
+    if (app.modals.length) { closeModal(); }
+  }
+});
+function modalHead(title, sub) {
+  return '<div class="modal-head"><div><h3>' + title + '</h3>' + (sub ? '<p>' + sub + '</p>' : '') + '</div>' +
+    '<button class="btn btn-ghost btn-icon" data-act="close-modal" aria-label="Close">' + ICON.x + '</button></div>';
+}
+
+var ICON = {
+  x: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  more: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>',
+  left: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>',
+  right: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+  plus: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  down: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>',
+  print: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9V3h10v6M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M7 14h10v7H7z"/></svg>',
+  paste: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6v3H9zM8 5H6a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-2"/></svg>'
+};
+
+/* ======================= top bar ======================= */
+function liveInfo() {
+  var S = app.S, l = S.live;
+  var map = { working: ['Work', 'Working'], lunch: ['Lunch', 'On lunch'], 'break': ['Break', 'On break'], away: ['Away', 'Away'], off: ['Off', 'Not tracking'] };
+  var x = map[l.status] || map.off;
+  return { kind: x[0], text: x[1], since: l.since };
+}
+function renderLive() {
+  if (!app.S) return;
+  var li = liveInfo();
+  document.getElementById('live').innerHTML = '<span class="dot k-' + li.kind + (li.kind === 'Work' ? ' pulse' : '') + '"></span>' +
+    '<span class="ltxt">' + li.text + ' &middot; </span><span class="strong">' + fmtDur(app.S.today.wk) + '</span><span class="ltxt muted">today</span>';
+}
+
+/* ======================= today ======================= */
+function renderToday() {
+  var S = app.S;
+  if (!S) return;
+  var t = S.today, pb = pendingBanner();
+  var keep = main.querySelector('.tl-card .card-body'), scroll = keep ? keep.scrollTop : 0;
+  document.body.classList.toggle('fit', fitMode());
+  main.innerHTML = '<div class="dash' + (pb ? ' has-banner' : '') + '">' + (pb ? '<div class="span2">' + pb + '</div>' : '') +
+    heroCard() + weekCard() +
+    '<section class="card tl-card"><div class="card-head"><h3>Today&rsquo;s timeline</h3>' +
+    '<button class="btn btn-sm" data-act="addtime" data-date="' + t.d + '">' + ICON.plus + 'Add time</button></div>' +
+    '<div class="card-body">' + timelineHtml(t) + '</div></section>' +
+    monthCard() + '</div>';
+  var nb = main.querySelector('.tl-card .card-body'); if (nb && scroll) nb.scrollTop = scroll;
+  drawWeekChart();
+  fitMonth();
+}
+function fitMonth() {
+  if (!fitMode()) return;
+  var cards = main.querySelectorAll('.dash > .card'), card = cards[cards.length - 1], ul = card && card.querySelector('.upcoming');
+  for (var i = 0; ul && i < 6 && card.scrollHeight > card.clientHeight + 1 && ul.children.length; i++) ul.removeChild(ul.lastElementChild);
+  if (ul && !ul.children.length) { var t = card.querySelector('.k-title'); if (t) t.style.display = 'none'; var dv = card.querySelector('.divider'); if (dv) dv.style.display = 'none'; ul.remove(); }
+}
+function fitMode() { return app.view === 'today' && window.innerWidth >= 900 && window.innerHeight >= 560; }
+function drawWeekChart() {
+  var slot = main.querySelector('.wk-chart');
+  if (!slot || !app.S) return;
+  var w = Math.max(240, slot.clientWidth), h = fitMode() ? Math.max(100, Math.min(260, slot.clientHeight - 30)) : 150;
+  slot.innerHTML = barChart(app.S.week.days, { width: w, height: h, compact: true });
+}
+
+function pendingBanner() {
+  var p = app.S.pending || [];
+  if (!p.length) return '';
+  var x = p[p.length - 1];
+  var more = p.length > 1 ? ' <span class="muted">(+' + (p.length - 1) + ' more in the timeline)</span>' : '';
+  return '<div class="banner" role="region" aria-label="Time not marked yet"><div class="b-text"><b>You were away ' + fmtTime(x.s) + NDASH + fmtTime(x.e) + ' (' + fmtDur(secsBetween(x.s, x.e)) + ')' + more + '</b>' +
+    '<span>' + (x.k === 'Off' ? 'The laptop was off. ' : 'No keyboard or mouse activity. ') + 'What was it?</span></div>' +
+    '<div class="row">' + markButtons(x.s, x.e, true) + '</div></div>';
+}
+function markButtons(from, to, big) {
+  var cls = big ? 'btn btn-sm' : 'chipbtn';
+  return ['Lunch', 'Break', 'Work'].map(function (k) {
+    return '<button class="' + cls + '" data-act="mark" data-from="' + from + '" data-to="' + to + '" data-kind="' + k + '">' + (k === 'Work' ? 'I was working' : k) + '</button>';
+  }).join('');
+}
+
+function heroCard() {
+  var S = app.S, t = S.today, li = liveInfo();
+  var sinceTxt = li.since && li.kind !== 'Off' ? ' <span class="muted">since ' + fmtTime(li.since) + '</span>' : '';
+  var started = t.s ? 'Started ' + fmtTime(t.s) : 'Not started yet';
+  var st = S.live.status, btns = '';
+  if (st === 'lunch') btns = '<button class="btn btn-primary btn-lg" data-act="break" data-what="End">End lunch</button><button class="btn btn-lg" data-act="break" data-what="Break">Switch to break</button>';
+  else if (st === 'break') btns = '<button class="btn btn-primary btn-lg" data-act="break" data-what="End">End break</button><button class="btn btn-lg" data-act="break" data-what="Lunch">Switch to lunch</button>';
+  else btns = '<button class="btn btn-primary btn-lg" data-act="break" data-what="Lunch">Start lunch</button><button class="btn btn-lg" data-act="break" data-what="Break">Start break</button>';
+  var h = '<section class="card hero" aria-label="Today">' +
+    '<div class="hero-top"><span class="pill"><span class="dot k-' + li.kind + '"></span>' + li.text + sinceTxt + '</span>' +
+    '<span class="muted">' + dayLong(t.d) + ' &middot; ' + started + '</span></div>' +
+    '<div class="hero-main"><div class="hero-num">' + fmtDur(t.wk) + (t.tg > 0 ? '<small>of ' + fmtDur(t.tg) + '</small>' : '') + '</div>' +
+    '<div class="hero-actions">' + btns + '</div></div>';
+  if (t.tg > 0) {
+    var pct = Math.min(100, t.wk / t.tg * 100);
+    h += '<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.round(pct) + '" aria-label="Progress toward today&rsquo;s hours"><span style="width:' + pct.toFixed(1) + '%"></span></div>';
+    if (t.wk < t.tg) {
+      var cond = (li.kind === 'Away' || (li.kind === 'Break' && !counts('Break')) || (li.kind === 'Lunch' && !counts('Lunch'))) ? ' if you&rsquo;re back now' : '';
+      h += '<p class="hero-cap"><span class="strong">' + fmtDur(t.tg - t.wk) + '</span> to go &middot; you&rsquo;ll reach ' + fmtDur(t.tg) + ' at <span class="strong">' + fmtTime(S.doneAt) + '</span>' + cond + '</p>';
+    } else {
+      h += '<p class="hero-cap"><span class="good strong">Target reached</span> &middot; ' + fmtDur(t.wk - t.tg) + ' extra today</p>';
+    }
+  } else {
+    var why = t.st === 'holiday' ? 'Holiday' + (t.hn ? ': ' + esc(t.hn) : '') : t.st === 'leave' ? 'You&rsquo;re on leave today' : t.st === 'weekend' ? 'Weekend' : 'No hours needed today';
+    h += '<p class="hero-cap">' + why + '. Anything you work today is extra.</p>';
+  }
+  h += '<div class="stats">' + statBox('Lunch', t.l, counts('Lunch')) + statBox('Break', t.b, counts('Break')) + statBox('Away', t.a, false) + '</div>';
+  var away = S.settings.AwayMinutes, note = '';
+  if (st === 'lunch' || st === 'break') note = 'It ends by itself when you come back to the laptop.';
+  else if (away > 0 && rt.idle.on) note = 'Away detection is on: close the lid and go &mdash; I&rsquo;ll ask what it was when you&rsquo;re back. Minimise this window; closing it stops tracking.';
+  else if (away > 0 && rt.idle.perm === 'prompt') note = 'Away detection is off. <button class="linkbtn" data-act="idle-allow">Turn it on</button> (then click Allow in the small Edge question).';
+  else if (away > 0 && rt.idle.perm === 'denied') note = 'Away detection is blocked in Edge: Edge Settings &rsaquo; Cookies and site permissions &rsaquo; Idle detection &rsaquo; Allow.';
+  else if (away > 0 && rt.idle.perm === 'unsupported') note = 'Open this in Microsoft Edge so time away is noticed automatically.';
+  if (note) h += '<p class="hero-note">' + note + '</p>';
+  return h + '</section>';
+}
+function statBox(kind, sec, counted) {
+  return '<div class="stat"><div class="lbl"><span class="dot k-' + kind + '"></span>' + kind + '</div><div class="val">' + fmtDur(sec) + '</div>' +
+    '<div class="cnt">' + (counted ? 'counted' : 'not counted') + '</div></div>';
+}
+
+function timelineHtml(day) {
+  var bl = day.blocks || [];
+  if (!bl.length) return '<div class="empty">Nothing recorded for this day.</div>';
+  var h = '<ul class="tl">';
+  bl.forEach(function (b) {
+    var k = KINDS[b.k] || KINDS.Away;
+    var unmarked = (b.k === 'Away' || b.k === 'Off') && !b.open && secsBetween(b.s, b.e) >= 60;
+    var note = b.k === 'Away' ? 'not counted &middot; not marked yet' : b.k === 'Off' ? 'not counted &middot; not marked yet' : (counts(b.k) ? 'counted' : 'not counted');
+    if (b.k === 'Away' && !unmarked) note = 'not counted';
+    h += '<li class="k-' + b.k + (unmarked ? ' pending' : '') + '"><span class="bar"></span>' +
+      '<div><div class="t1">' + k.label + (b.open ? ' <span class="tag now">now</span>' : '') + '</div>' +
+      '<div class="t2">' + fmtTime(b.s) + NDASH + (b.open ? 'now' : fmtTime(b.e)) + ' &middot; ' + note + '</div></div>' +
+      '<div class="dur">' + fmtDur(secsBetween(b.s, b.e)) + '</div><div class="act">';
+    if (unmarked) h += markButtons(b.s, b.e, false);
+    else if (!b.open) h += '<button class="btn btn-ghost btn-icon btn-sm" data-act="menu" data-from="' + b.s + '" data-to="' + b.e + '" data-kind="' + b.k + '" aria-label="Change how ' + fmtTimeText(b.s) + ' to ' + fmtTimeText(b.e) + ' counts">' + ICON.more + '</button>';
+    h += '</div></li>';
+  });
+  return h + '</ul>';
+}
+
+function weekCard() {
+  var S = app.S, w = S.week, t = S.today;
+  var last = addDays(parseIso(w.start), 6);
+  var h = '<section class="card"><div class="card-head"><h3>This week</h3><span class="sub">' + rangeLabel(w.start, ymd(last)) + '</span></div><div class="card-body">';
+  h += '<div class="big">' + fmtDur(w.worked) + ' <small>/ ' + fmtDur(w.target) + '</small></div>';
+  if (w.priorCount === 0) h += '<div class="line"><span class="muted">New week &mdash; nothing before today yet.</span></div>';
+  else if (Math.abs(w.prior) < 60) h += '<div class="line"><span class="good strong">Exactly on track</span><span class="muted">Mon&ndash;yesterday</span></div>';
+  else h += '<div class="line"><span class="strong ' + (w.prior < 0 ? 'bad' : 'good') + '">' + (w.prior < 0 ? 'Behind by ' : 'Ahead by ') + fmtDur(Math.abs(w.prior)) + '</span><span class="muted">Mon&ndash;yesterday</span></div>';
+  if (w.leaveAt) h += '<div class="line">Leave at <span class="strong">' + fmtTime(w.leaveAt) + '</span> to stay on track this week.</div>';
+  else if (t.tg > 0 || w.prior < 0) h += '<div class="line good">You&rsquo;re on track for the week &mdash; leave any time.</div>';
+  h += '<div class="wk-chart"></div>';
+  return h + '</div></section>';
+}
+
+function monthCard() {
+  var S = app.S, m = S.month, d = parseIso(m.start);
+  var h = '<section class="card"><div class="card-head"><h3>' + MONTHS[d.getMonth()] + '</h3><button class="btn btn-ghost btn-sm" data-act="goto-month">Month report ' + ICON.right + '</button></div><div class="card-body"><div class="kv kv4">' +
+    '<div><div class="k">Worked so far</div><div class="v">' + fmtDur(m.worked) + '</div></div>' +
+    '<div><div class="k">Ahead / behind</div><div class="v">' + signedHtml(m.prior) + '</div></div>' +
+    '<div><div class="k">Leave taken</div><div class="v">' + plural(m.leaves, 'day') + '</div></div>' +
+    '<div><div class="k">Holidays</div><div class="v">' + m.holidays + '</div></div></div>';
+  var up = S.upcoming || [];
+  h += '<div class="divider"></div><div class="k-title">Coming up</div>';
+  if (up.length) {
+    h += '<ul class="upcoming">' + up.map(function (x) { return '<li><span class="strong">' + esc(x.name) + '</span><span class="muted">' + dayShort(x.d) + '</span></li>'; }).join('') + '</ul>';
+  } else h += '<p class="muted small" style="margin-top:4px">No holidays added yet &mdash; add them under Leave &amp; holidays.</p>';
+  if (S.overall.since) h += '<div class="line overall"><span class="muted">Overall since ' + dayShort(S.overall.since) + '</span>' + signedHtml(S.overall.balance) + '</div>';
+  return h + '</div></section>';
+}
+
+/* ======================= bar chart ======================= */
+function barChart(days, opts) {
+  opts = opts || {};
+  var today = todayStr();
+  var W = Math.max(260, opts.width || (opts.compact ? 340 : 760)), H = opts.height || 220;
+  var padL = 30, padR = 6, padT = 10, padB = 24;
+  var maxSec = 0;
+  days.forEach(function (d) { maxSec = Math.max(maxSec, d.wk, d.tg); });
+  var baseStep = maxSec > 12 * 3600 ? 4 : 3;
+  var yMax = Math.max(baseStep * 4, Math.ceil(maxSec / 3600 / baseStep) * baseStep);
+  var stepH = (H < 130 && yMax % (baseStep * 2) === 0) ? baseStep * 2 : baseStep;
+  var pw = W - padL - padR, ph = H - padT - padB, band = pw / days.length;
+  var bw = Math.max(4, Math.min(24, band * 0.62));
+  var y = function (sec) { return padT + ph - (sec / 3600) / yMax * ph; };
+  var s = '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Hours counted per day">';
+  for (var g = 0; g <= yMax; g += stepH) {
+    var gy = y(g * 3600).toFixed(1);
+    s += '<line class="grid" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + gy + '" y2="' + gy + '"/>';
+    s += '<text class="axis" x="' + (padL - 6) + '" y="' + (+gy + 4) + '" text-anchor="end">' + g + 'h</text>';
+  }
+  var every = band < 16 ? 2 : 1;
+  days.forEach(function (d, i) {
+    var cx = padL + band * i + band / 2, dt = parseIso(d.d), future = d.d > today, isToday = d.d === today;
+    var tip = '<b>' + dayShort(d.d) + '</b><br>' + (STATUS[d.st] || '') + (d.hn ? ': ' + esc(d.hn) : '') +
+      (future ? '' : '<br>Counted: ' + fmtDur(d.wk)) + (d.tg ? '<br>Target: ' + fmtDur(d.tg) : '') +
+      (!future && d.tg ? '<br>' + (isToday ? 'So far: ' : 'Difference: ') + fmtSigned(d.wk - d.tg) : '');
+    s += '<rect class="hit" data-act="day" data-date="' + d.d + '" data-tip="' + esc(tip) + '" x="' + (padL + band * i + 1).toFixed(1) + '" y="' + padT + '" width="' + Math.max(1, band - 2).toFixed(1) + '" height="' + ph + '" rx="6"/>';
+    if (d.wk > 0) {
+      var top = y(d.wk), bx = cx - bw / 2, base = padT + ph, r = Math.min(4, (base - top) / 2, bw / 2);
+      s += '<path pointer-events="none" class="' + (isToday && d.live ? 'bar-today' : 'bar-work') + '" d="M' + bx.toFixed(1) + ' ' + base + 'V' + (top + r).toFixed(1) +
+        'Q' + bx.toFixed(1) + ' ' + top.toFixed(1) + ' ' + (bx + r).toFixed(1) + ' ' + top.toFixed(1) + 'H' + (bx + bw - r).toFixed(1) +
+        'Q' + (bx + bw).toFixed(1) + ' ' + top.toFixed(1) + ' ' + (bx + bw).toFixed(1) + ' ' + (top + r).toFixed(1) + 'V' + base + 'Z"/>';
+    } else if (!future && (d.st === 'leave' || d.st === 'autoleave' || d.st === 'holiday')) {
+      s += '<text pointer-events="none" x="' + cx.toFixed(1) + '" y="' + (padT + ph - 6) + '" text-anchor="middle" style="font-size:10.5px">' + (band > 40 ? (d.st === 'holiday' ? 'Holiday' : 'Leave') : (d.st === 'holiday' ? 'H' : 'L')) + '</text>';
+    }
+    if (d.tg > 0) {
+      var ty = y(d.tg).toFixed(1), tw = Math.min(bw / 2 + 5, band / 2 - 3);
+      s += '<line pointer-events="none" class="tgt" x1="' + (cx - tw).toFixed(1) + '" x2="' + (cx + tw).toFixed(1) + '" y1="' + ty + '" y2="' + ty + '"/>';
+    }
+    if (i % every === 0 || isToday) {
+      var lbl = opts.compact || days.length <= 7 ? (opts.compact ? DOW[dt.getDay()].charAt(0) : DOW[dt.getDay()] + ' ' + dt.getDate()) : String(dt.getDate());
+      s += '<text pointer-events="none" class="' + (isToday ? 'lbl-today' : '') + '" x="' + cx.toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle">' + lbl + '</text>';
+    }
+  });
+  s += '</svg>';
+  s += '<div class="legend"><span><i style="background:var(--work)"></i>Hours counted</span><span><i class="l-tgt"></i>Target</span></div>';
+  return s;
+}
+
+/* ======================= day details ======================= */
+function openDay(date) {
+  var ov = openModal('<div data-day="' + date + '">' + modalHead(dayLong(date), 'Loading&hellip;') + '<div class="modal-body"><div class="skeleton" style="height:160px"></div></div></div>', { wide: true, day: date });
+  loadDayInto(ov, date);
+}
+function loadDayInto(ov, date) {
+  api('/api/range?from=' + date + '&to=' + date).then(function (r) {
+    var d = r.days[0];
+    var box = ov.querySelector('[data-day]');
+    if (!box) return;
+    var sub = (STATUS[d.st] || '') + (d.hn ? ' &middot; ' + esc(d.hn) : '');
+    var cur = d.ov || 'auto';
+    var future = d.d > todayStr();
+    var h = modalHead(dayLong(date), sub) + '<div class="modal-body">';
+    h += '<div class="mini-kpis"><div><div class="k">Counted</div><div class="v">' + fmtDur(d.wk) + '</div></div>' +
+      '<div><div class="k">Target</div><div class="v">' + fmtDur(d.tg) + '</div></div>' +
+      '<div><div class="k">' + (d.d === todayStr() ? 'So far' : 'Ahead / behind') + '</div><div class="v">' + (future ? '&ndash;' : signedHtml(d.wk - d.tg)) + '</div></div></div>';
+    h += '<div class="row" style="justify-content:space-between;margin-bottom:6px"><h4 style="font-size:14px">Timeline</h4><button class="btn btn-sm" data-act="addtime" data-date="' + d.d + '">' + ICON.plus + 'Add time</button></div>';
+    h += timelineHtml(d);
+    h += '<div class="divider"></div><h4 style="font-size:14px;margin-bottom:8px">What kind of day was this?</h4><div class="seg" role="group" aria-label="Day type">';
+    [['auto', 'Normal'], ['leave', 'Leave'], ['half', 'Half-day leave'], ['work', 'Working day']].forEach(function (o) {
+      h += '<button data-act="daystatus" data-date="' + d.d + '" data-status="' + o[0] + '" aria-pressed="' + (cur === o[0]) + '">' + o[1] + '</button>';
+    });
+    h += '</div><p class="hint" style="margin-top:8px">Normal follows your working days, holidays and the &ldquo;no activity = leave&rdquo; rule. &ldquo;Working day&rdquo; always needs ' + hoursLabel() + ' (use it for &ldquo;not leave&rdquo;).</p>';
+    h += '</div><div class="modal-foot"><button class="btn" data-act="close-modal">Done</button></div>';
+    box.innerHTML = h;
+  }, function (e) { toast(e.message, true); });
+}
+function refreshDayModal() {
+  app.modals.forEach(function (m) { if (m.opts.day) loadDayInto(m.el, m.opts.day); });
+}
+
+function openAddTime(date) {
+  var now = serverNow();
+  var isToday = date === todayStr();
+  var from = isToday ? pad(Math.max(0, now.getHours() - 1)) + ':00' : '09:30';
+  var to = isToday ? pad(now.getHours()) + ':' + pad(now.getMinutes()) : '18:30';
+  var h = modalHead('Add or change time', 'Use this for time the tracker missed, e.g. work away from the laptop or a forgotten break.') +
+    '<div class="modal-body"><div class="form-grid">' +
+    '<label class="field">Date<input class="input" type="date" id="at-date" value="' + date + '"></label>' +
+    '<label class="field">From<input class="input" type="time" id="at-from" value="' + from + '"></label>' +
+    '<label class="field">To<input class="input" type="time" id="at-to" value="' + to + '"></label></div>' +
+    '<div style="margin-top:14px"><div class="hint" style="margin-bottom:6px;font-weight:560;color:var(--text-2)">This time was</div><div class="seg" role="group" id="at-kind">' +
+    [['Work', 'Working'], ['Lunch', 'Lunch'], ['Break', 'Break'], ['Away', 'Not working']].map(function (o, i) { return '<button type="button" data-act="seg" data-val="' + o[0] + '" aria-pressed="' + (i === 0) + '">' + o[1] + '</button>'; }).join('') +
+    '</div></div><label class="field" style="margin-top:14px">Note (optional)<input class="input" id="at-note" maxlength="80" placeholder="e.g. client meeting"></label>' +
+    '<p class="err-text" id="at-err"></p></div>' +
+    '<div class="modal-foot"><button class="btn" data-act="close-modal">Cancel</button><button class="btn btn-primary" data-act="save-time">Save</button></div>';
+  openModal(h);
+}
+function saveTime() {
+  var d = document.getElementById('at-date').value, f = document.getElementById('at-from').value, t = document.getElementById('at-to').value;
+  var kindBtn = document.querySelector('#at-kind [aria-pressed="true"]');
+  var err = document.getElementById('at-err');
+  if (!d || !f || !t) { err.textContent = 'Please fill in the date and both times.'; return; }
+  var a = parseIso(d + 'T' + f + ':00'), b = parseIso(d + 'T' + t + ':00');
+  if (b <= a) { b = addDays(b, 1); b.setHours(+t.slice(0, 2), +t.slice(3, 5), 0, 0); }
+  if ((b - a) / 3600000 > 16) { err.textContent = 'That is more than 16 hours. Please check the times.'; return; }
+  var note = document.getElementById('at-note').value.trim();
+  act('/api/mark', { from: isoOf(a), to: isoOf(b), kind: kindBtn ? kindBtn.dataset.val : 'Work', note: note }, 'Saved').then(function () { closeModal(); }, function () {});
+}
+
+/* ======================= reports ======================= */
+function repRange() {
+  var a = app.rep.anchor || dateOnly(serverNow());
+  if (app.rep.mode === 'week') { var s = weekStart(a); return [s, addDays(s, 6)]; }
+  var f = new Date(a.getFullYear(), a.getMonth(), 1);
+  return [f, new Date(a.getFullYear(), a.getMonth() + 1, 0)];
+}
+function loadReport() {
+  var r = repRange(), key = app.rep.mode + ymd(r[0]);
+  app.rep.loading = key;
+  if (!app.rep.data || app.rep.data.key !== key) renderReports(true);
+  api('/api/range?from=' + ymd(r[0]) + '&to=' + ymd(r[1]) + '&light=1').then(function (data) {
+    if (app.rep.loading !== key) return;
+    data.key = key;
+    app.rep.data = data;
+    renderReports(false);
+  }, function (e) { toast(e.message, true); });
+}
+function summarize(days) {
+  var today = todayStr(), o = { worked: 0, target: 0, bal: 0, workDays: 0, workSec: 0, leave: 0, hol: 0, lunch: 0, brk: 0, away: 0 };
+  days.forEach(function (d) {
+    o.target += d.tg;
+    if (d.d <= today) { o.worked += d.wk; o.lunch += d.l; o.brk += d.b; o.away += d.a; }
+    if (d.d < today) o.bal += d.wk - d.tg;
+    if (d.d < today && d.wk > 0 && d.tg > 0) { o.workDays++; o.workSec += d.wk; }
+    if (d.d <= today && (d.st === 'leave' || d.st === 'autoleave')) o.leave += 1;
+    if (d.d <= today && d.st === 'half') o.leave += 0.5;
+    if (d.st === 'holiday') o.hol++;
+  });
+  return o;
+}
+function renderReports(loading) {
+  var r = repRange(), mode = app.rep.mode;
+  var label = mode === 'week' ? rangeLabel(ymd(r[0]), ymd(r[1])) + ' ' + r[1].getFullYear() : MONTHS[r[0].getMonth()] + ' ' + r[0].getFullYear();
+  var isCurrent = ymd(r[0]) <= todayStr() && todayStr() <= ymd(r[1]);
+  var h = '<div class="page-head"><div><h2>Reports</h2><p>Your hours by week or month. Click any day to see or fix its details.</p></div></div>';
+  h += '<div class="toolbar"><div class="seg" role="group" aria-label="Report period"><button data-act="rep-mode" data-mode="week" aria-pressed="' + (mode === 'week') + '">Week</button><button data-act="rep-mode" data-mode="month" aria-pressed="' + (mode === 'month') + '">Month</button></div>' +
+    '<div class="nav"><button class="btn btn-ghost btn-icon" data-act="rep-step" data-dir="-1" aria-label="Previous">' + ICON.left + '</button><span class="lbl">' + label + '</span><button class="btn btn-ghost btn-icon" data-act="rep-step" data-dir="1" aria-label="Next">' + ICON.right + '</button></div>' +
+    (isCurrent ? '' : '<button class="btn btn-sm no-print" data-act="rep-now">' + (mode === 'week' ? 'This week' : 'This month') + '</button>') +
+    '<span class="spacer"></span><button class="btn btn-sm no-print" data-act="csv">' + ICON.down + 'Download for Excel</button><button class="btn btn-sm no-print" data-act="print">' + ICON.print + 'Print / PDF</button></div>';
+  var data = app.rep.data;
+  if (loading || !data) { main.innerHTML = h + '<div class="skeleton"></div>'; return; }
+  var days = data.days, o = summarize(days);
+  var balNote = isCurrent ? 'up to yesterday' : (mode === 'week' ? 'for the week' : 'for the month');
+  h += '<div class="kpis">' +
+    kpi('Worked', fmtDur(o.worked), 'of ' + fmtDur(o.target) + ' target') +
+    kpi('Ahead / behind', signedHtml(o.bal), balNote) +
+    kpi('Average day', o.workDays ? fmtDur(o.workSec / o.workDays) : '&ndash;', o.workDays ? 'over ' + plural(o.workDays, 'full day') : 'no full days yet') +
+    kpi('Lunch', fmtDur(o.lunch), counts('Lunch') ? 'counted' : 'not counted') +
+    kpi('Leave', plural(o.leave, 'day'), o.hol ? plural(o.hol, 'holiday') : 'no holidays') +
+    kpi('Breaks &amp; away', fmtDur(o.brk + o.away), 'not counted') + '</div>';
+  var cw = Math.min(1132, Math.max(300, main.clientWidth - 40 - 48));
+  h += '<section class="card"><div class="card-head"><h3>Hours counted per day</h3></div><div class="card-body">' + barChart(days, { width: cw, height: 230 }) + '</div></section>';
+  h += mode === 'week' ? weekTable(days) : monthCalendar(days) + monthWeeks(days);
+  main.innerHTML = h;
+}
+function kpi(k, v, n) { return '<div class="kpi"><div class="k">' + k + '</div><div class="v">' + v + '</div><div class="n">' + n + '</div></div>'; }
+function stText(d) { return (STATUS[d.st] || '') + (d.hn ? ': ' + esc(d.hn) : ''); }
+function weekTable(days) {
+  var today = todayStr(), tot = { wk: 0, tg: 0, l: 0, b: 0, a: 0, bal: 0 };
+  var h = '<section class="card"><div class="card-head"><h3>Day by day</h3></div><div class="card-body tbl-wrap"><table class="tbl"><thead><tr><th>Day</th><th>Type</th><th>Start</th><th>End</th><th class="r">Lunch</th><th class="r">Breaks</th><th class="r">Away</th><th class="r">Counted</th><th class="r">Target</th><th class="r">Ahead / behind</th></tr></thead><tbody>';
+  days.forEach(function (d) {
+    var future = d.d > today;
+    tot.tg += d.tg;
+    if (!future) { tot.wk += d.wk; tot.l += d.l; tot.b += d.b; tot.a += d.a; }
+    if (d.d < today) tot.bal += d.wk - d.tg;
+    var diff = future ? '<span class="muted">&ndash;</span>' : d.d === today ? (d.wk >= d.tg ? signedHtml(d.wk - d.tg) : '<span class="muted">' + fmtDur(d.tg - d.wk) + ' to go</span>') : (d.tg || d.wk ? signedHtml(d.wk - d.tg) : '<span class="muted">&ndash;</span>');
+    h += '<tr data-act="day" data-date="' + d.d + '"' + (d.d === today ? ' class="is-today"' : '') + '><td class="strong">' + dayShort(d.d) + '</td><td><span class="st">' + stText(d) + '</span></td>' +
+      '<td>' + (d.s ? fmtTime(d.s) : '&ndash;') + '</td><td>' + (d.e ? (d.live ? 'now' : fmtTime(d.e)) : '&ndash;') + '</td>' +
+      '<td class="r">' + (d.l ? fmtDur(d.l) : '&ndash;') + '</td><td class="r">' + (d.b ? fmtDur(d.b) : '&ndash;') + '</td><td class="r">' + (d.a ? fmtDur(d.a) : '&ndash;') + '</td>' +
+      '<td class="r strong">' + (future ? '&ndash;' : fmtDur(d.wk)) + '</td><td class="r">' + (d.tg ? fmtDur(d.tg) : '&ndash;') + '</td><td class="r">' + diff + '</td></tr>';
+  });
+  h += '</tbody><tfoot><tr><td colspan="4">Week total</td><td class="r">' + fmtDur(tot.l) + '</td><td class="r">' + fmtDur(tot.b) + '</td><td class="r">' + fmtDur(tot.a) + '</td><td class="r">' + fmtDur(tot.wk) + '</td><td class="r">' + fmtDur(tot.tg) + '</td><td class="r">' + signedHtml(tot.bal) + '</td></tr></tfoot></table></div></section>';
+  return h;
+}
+function monthCalendar(days) {
+  var today = todayStr();
+  var first = parseIso(days[0].d), lead = (first.getDay() + 6) % 7;
+  var h = '<section class="card"><div class="card-head"><h3>Calendar</h3><span class="sub">Click a day for details</span></div><div class="card-body"><div class="cal">';
+  ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].forEach(function (n) { h += '<div class="h">' + n + '</div>'; });
+  for (var i = 0; i < lead; i++) h += '<div class="c blank" aria-hidden="true"></div>';
+  days.forEach(function (d) {
+    var dt = parseIso(d.d), future = d.d > today, off = d.tg === 0;
+    var diff = '';
+    if (!future && d.d !== today && (d.tg || d.wk)) { var x = d.wk - d.tg; diff = '<span class="d ' + (Math.abs(x) < 60 ? 'muted' : x < 0 ? 'bad' : 'good') + '">' + fmtSigned(x) + '</span>'; }
+    var stl = d.st === 'work' ? '' : (d.st === 'holiday' ? esc(d.hn || 'Holiday') : (STATUS[d.st] || ''));
+    h += '<button class="c' + (off ? ' off' : '') + (d.d === today ? ' today' : '') + '" data-act="day" data-date="' + d.d + '" aria-label="' + dayLong(d.d) + '">' +
+      '<span class="n">' + dt.getDate() + '</span>' + (stl ? '<span class="s" title="' + stl + '">' + stl + '</span>' : '') +
+      '<span class="w">' + (d.wk > 0 ? fmtDur(d.wk) : '') + '</span>' + diff + '</button>';
+  });
+  return h + '</div></div></section>';
+}
+function monthWeeks(days) {
+  var today = todayStr(), weeks = [], cur = null;
+  days.forEach(function (d) {
+    var ws = ymd(weekStart(parseIso(d.d)));
+    if (!cur || cur.ws !== ws) { cur = { ws: ws, a: d.d, b: d.d, wk: 0, tg: 0, bal: 0 }; weeks.push(cur); }
+    cur.b = d.d; cur.tg += d.tg;
+    if (d.d <= today) cur.wk += d.wk;
+    if (d.d < today) cur.bal += d.wk - d.tg;
+  });
+  var h = '<section class="card"><div class="card-head"><h3>Week by week</h3><span class="sub">Days inside this month</span></div><div class="card-body tbl-wrap"><table class="tbl"><thead><tr><th>Week</th><th class="r">Counted</th><th class="r">Target</th><th class="r">Ahead / behind</th></tr></thead><tbody>';
+  weeks.forEach(function (w) {
+    h += '<tr data-act="goto-week" data-date="' + w.a + '"><td class="strong">' + rangeLabel(w.a, w.b) + '</td><td class="r strong">' + (w.a > today ? '<span class="muted">&ndash;</span>' : fmtDur(w.wk)) + '</td><td class="r">' + fmtDur(w.tg) + '</td><td class="r">' + (w.a > today ? '<span class="muted">&ndash;</span>' : signedHtml(w.bal)) + '</td></tr>';
+  });
+  return h + '</tbody></table></div></section>';
+}
+function downloadCsv() {
+  var data = app.rep.data; if (!data) return;
+  var today = todayStr();
+  var rows = [['Date', 'Day', 'Type', 'Holiday', 'Start', 'End', 'Lunch (h:mm)', 'Breaks (h:mm)', 'Away (h:mm)', 'Counted (h:mm)', 'Target (h:mm)', 'Ahead/behind (h:mm)']];
+  data.days.forEach(function (d) {
+    var dt = parseIso(d.d), past = d.d <= today, diff = d.wk - d.tg;
+    rows.push([d.d, DOW_LONG[dt.getDay()], (STATUS[d.st] || d.st), d.hn || '', d.s ? fmtTimeText(d.s) : '', d.e ? fmtTimeText(d.e) : '',
+      past ? hm(d.l) : '', past ? hm(d.b) : '', past ? hm(d.a) : '', past ? hm(d.wk) : '', hm(d.tg), d.d < today ? (diff < 0 ? '-' : '+') + hm(diff) : '']);
+  });
+  var csv = rows.map(function (r) { return r.map(function (c) { c = String(c); return /[",\n]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c; }).join(','); }).join('\r\n');
+  var blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'My hours ' + data.from + ' to ' + data.to + '.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+  toast('Saved to your Downloads folder');
+}
+
+/* ======================= leave & holidays ======================= */
+function loadLeave() {
+  if (!app.year) app.year = serverNow().getFullYear();
+  var y = app.year;
+  if (!app.leave || app.leave.year !== y) renderLeave(true);
+  Promise.all([api('/api/holidays'), api('/api/range?from=' + y + '-01-01&to=' + y + '-12-31&light=1')]).then(function (res) {
+    if (app.year !== y) return;
+    app.holidays = res[0].items;
+    app.leave = { year: y, days: res[1].days };
+    renderLeave(false);
+  }, function (e) { toast(e.message, true); });
+}
+function renderLeave(loading) {
+  var y = app.year;
+  var h = '<div class="page-head"><div><h2>Leave &amp; holidays</h2><p>Holidays and leave days don&rsquo;t need ' + hoursLabel() + '. Saturday and Sunday are off unless you change it in Settings.</p></div>' +
+    '<div class="nav"><button class="btn btn-ghost btn-icon" data-act="year" data-dir="-1" aria-label="Previous year">' + ICON.left + '</button><span class="lbl" style="min-width:70px">' + y + '</span><button class="btn btn-ghost btn-icon" data-act="year" data-dir="1" aria-label="Next year">' + ICON.right + '</button></div></div>';
+  if (loading || !app.leave) { main.innerHTML = h + '<div class="skeleton"></div>'; return; }
+  var today = todayStr();
+  var hol = (app.holidays || []).filter(function (x) { return x.d.slice(0, 4) === String(y); });
+  h += '<div class="grid-2"><section class="card"><div class="card-head"><h3>Holidays in ' + y + '</h3><div class="row"><button class="btn btn-sm" data-act="hol-add">' + ICON.plus + 'Add one</button><button class="btn btn-sm btn-primary" data-act="hol-paste">' + ICON.paste + 'Paste a list</button></div></div><div class="card-body">';
+  if (!hol.length) {
+    h += '<div class="empty"><p class="strong" style="margin-bottom:4px">No holidays for ' + y + ' yet</p><p>Copy your company&rsquo;s holiday list from an email, Excel sheet or PDF and paste it here &mdash; dates in any common format.</p><button class="btn btn-primary" style="margin-top:14px" data-act="hol-paste">' + ICON.paste + 'Paste holiday list</button></div>';
+  } else {
+    h += '<ul class="list">';
+    hol.forEach(function (x) {
+      var dt = parseIso(x.d), wkend = (app.S.settings.WorkDays || []).indexOf(dt.getDay()) < 0;
+      h += '<li class="' + (x.d < today ? 'past' : '') + '"><div class="date">' + dt.getDate() + ' ' + MON[dt.getMonth()] + '<span>' + DOW_LONG[dt.getDay()] + '</span></div>' +
+        '<div class="name"><b>' + esc(x.name) + '</b>' + (wkend ? '<div class="hint">Falls on a day off &mdash; no effect</div>' : '') + '</div>' +
+        '<button class="btn btn-ghost btn-icon btn-sm" data-act="hol-del" data-date="' + x.d + '" aria-label="Remove ' + esc(x.name) + '">' + ICON.x + '</button></li>';
+    });
+    h += '</ul><div class="row" style="margin-top:10px"><span class="muted small">' + plural(hol.length, 'holiday') + '</span><span class="spacer"></span><button class="btn btn-ghost btn-sm btn-danger" data-act="hol-clear">Remove all for ' + y + '</button></div>';
+  }
+  h += '</div></section>';
+
+  var rows = app.leave.days.filter(function (d) { return d.st === 'leave' || d.st === 'half' || d.st === 'autoleave' || d.ov === 'work'; });
+  var taken = 0;
+  rows.forEach(function (d) { if (d.d <= today) taken += d.st === 'half' ? 0.5 : (d.st === 'leave' || d.st === 'autoleave') ? 1 : 0; });
+  h += '<section class="card"><div class="card-head"><h3>Leave</h3><span class="sub">' + plural(taken, 'day') + ' taken in ' + y + '</span></div><div class="card-body">' +
+    '<div class="row" style="align-items:flex-end"><label class="field" style="flex:1;min-width:150px">Date<input class="input" type="date" id="lv-date" value="' + today + '"></label>' +
+    '<div class="seg" role="group" id="lv-kind" aria-label="Leave type"><button data-act="seg" data-val="leave" aria-pressed="true">Full day</button><button data-act="seg" data-val="half" aria-pressed="false">Half day</button></div>' +
+    '<button class="btn btn-primary" data-act="lv-save">Mark leave</button></div>' +
+    '<p class="hint" style="margin-top:8px">Working days with no activity at all are marked as leave automatically. Choose &ldquo;Not leave&rdquo; to count them as a working day instead.</p><div class="divider"></div>';
+  if (!rows.length) h += '<div class="empty">No leave in ' + y + '.</div>';
+  else {
+    h += '<ul class="list">';
+    rows.forEach(function (d) {
+      var dt = parseIso(d.d), label, actions;
+      if (d.ov === 'work') { label = '<b>Not leave</b><div class="hint">Counted as a working day</div>'; actions = '<button class="btn btn-sm" data-act="daystatus" data-date="' + d.d + '" data-status="auto">Undo</button>'; }
+      else if (d.st === 'autoleave') { label = '<b>Leave</b><div class="hint">Automatic &mdash; no activity that day</div>'; actions = '<button class="btn btn-sm" data-act="daystatus" data-date="' + d.d + '" data-status="work">Not leave</button><button class="btn btn-sm btn-ghost" data-act="daystatus" data-date="' + d.d + '" data-status="leave">Keep</button>'; }
+      else { label = '<b>' + (d.st === 'half' ? 'Half-day leave' : 'Leave') + '</b>' + (d.d > today ? '<div class="hint">Planned</div>' : ''); actions = '<button class="btn btn-sm btn-ghost" data-act="daystatus" data-date="' + d.d + '" data-status="auto">Remove</button>'; }
+      h += '<li><div class="date">' + dt.getDate() + ' ' + MON[dt.getMonth()] + '<span>' + DOW_LONG[dt.getDay()] + '</span></div><div class="name">' + label + '</div><div class="row" style="gap:6px">' + actions + '</div></li>';
+    });
+    h += '</ul>';
+  }
+  h += '</div></section></div>';
+  main.innerHTML = h;
+}
+
+/* ---------- holiday list parsing ---------- */
+var MONTH_NUM = { jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3, apr: 4, april: 4, may: 5, jun: 6, june: 6, jul: 7, july: 7, aug: 8, august: 8, sep: 9, sept: 9, september: 9, oct: 10, october: 10, nov: 11, november: 11, dec: 12, december: 12 };
+function monthOf(w) { return MONTH_NUM[String(w || '').toLowerCase().replace(/\.$/, '')] || 0; }
+function yearOf(y, def) { if (!y) return def; y = +y; return y < 100 ? 2000 + y : y; }
+function validYmd(y, m, d) {
+  if (!(y >= 1990 && y <= 2100 && m >= 1 && m <= 12 && d >= 1 && d <= 31)) return null;
+  var dt = new Date(y, m - 1, d);
+  return dt.getMonth() === m - 1 ? ymd(dt) : null;
+}
+var DATE_PATTERNS = [
+  { re: /\b(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})\b/g, f: function (m) { return [+m[1], +m[2], +m[3]]; } },
+  { re: /\b(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4}|\d{2})\b/g, f: function (m) { return [yearOf(m[3]), +m[2], +m[1]]; } },
+  { re: /\b(\d{1,2})(?:st|nd|rd|th)?[\s\-\/.,]*([A-Za-z]{3,9})\.?(?:[\s\-\/.,']+(\d{4}|\d{2})(?!\d))?/g, f: function (m, Y) { var mo = monthOf(m[2]); return mo ? [yearOf(m[3], Y), mo, +m[1]] : null; } },
+  { re: /\b([A-Za-z]{3,9})\.?[\s\-]+(\d{1,2})(?:st|nd|rd|th)?\b(?:,?[\s\-]+(\d{4}))?/g, f: function (m, Y) { var mo = monthOf(m[1]); return mo ? [yearOf(m[3], Y), mo, +m[2]] : null; } },
+  { re: /\b(\d{1,2})[\/.\-](\d{1,2})\b/g, f: function (m, Y) { return [Y, +m[2], +m[1]]; } }
+];
+function cleanName(s) {
+  return s
+    .replace(/\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tues?|wed|thurs?|thu|fri|sat|sun)\b\.?/gi, ' ')
+    .replace(/\(\s*[,.\-]?\s*\)/g, ' ')
+    .replace(/[|\t]+/g, ' ')
+    .replace(/^\s*(?:sr\.?\s*no\.?|no\.?)?\s*\d{1,3}\s*[.):\-]?\s+/i, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/^[\s\-\u2013\u2014:,.;]+|[\s\-\u2013\u2014:,.;]+$/g, '')
+    .trim();
+}
+function parseHolidayLine(line, defYear) {
+  var s = String(line).replace(/\u00a0/g, ' ').trim();
+  if (!s) return null;
+  for (var p = 0; p < DATE_PATTERNS.length; p++) {
+    var re = new RegExp(DATE_PATTERNS[p].re.source, 'g'), m;
+    while ((m = re.exec(s)) !== null) {
+      var r = DATE_PATTERNS[p].f(m, defYear);
+      var d = r ? validYmd(r[0], r[1], r[2]) : null;
+      if (!d) { re.lastIndex = m.index + 1; continue; }
+      var name = cleanName(s.slice(0, m.index) + '  ' + s.slice(m.index + m[0].length));
+      return { d: d, name: name || 'Holiday' };
+    }
+  }
+  return { d: null, raw: s };
+}
+function parseHolidayText(text, defYear) {
+  var out = { items: [], skipped: [] }, seen = {};
+  String(text || '').split(/\r?\n/).forEach(function (line) {
+    var r = parseHolidayLine(line, defYear);
+    if (!r) return;
+    if (!r.d) { out.skipped.push(r.raw); return; }
+    if (seen[r.d] !== undefined) { out.items[seen[r.d]].name = r.name; return; }
+    seen[r.d] = out.items.length;
+    out.items.push(r);
+  });
+  out.items.sort(function (a, b) { return a.d < b.d ? -1 : 1; });
+  return out;
+}
+window.__parseHolidayText = parseHolidayText;
+
+var pasteState = null;
+function openPaste() {
+  var y = app.year || serverNow().getFullYear();
+  var sample = 'Example:\n26-01-2026  Republic Day\n04 Mar 2026  Holi\nIndependence Day - 15th August 2026\nOct 20, 2026 Diwali';
+  var h = modalHead('Paste your holiday list', 'Copy it from an email, Excel sheet or PDF. One holiday per line; most date formats work.') +
+    '<div class="modal-body"><textarea class="input" id="hp-text" rows="9" placeholder="' + esc(sample) + '" autofocus></textarea>' +
+    '<div class="row" style="margin-top:10px"><label class="field" style="flex-direction:row;align-items:center;gap:8px">Year for dates without a year <input class="input" type="number" id="hp-year" value="' + y + '" min="2000" max="2100" style="width:96px"></label></div>' +
+    '<div id="hp-preview"></div></div>' +
+    '<div class="modal-foot"><button class="btn" data-act="close-modal">Cancel</button><button class="btn btn-primary" data-act="hol-save" id="hp-save" disabled>Save holidays</button></div>';
+  var ov = openModal(h, { wide: true });
+  var upd = function () { updatePaste(); };
+  ov.querySelector('#hp-text').addEventListener('input', upd);
+  ov.querySelector('#hp-year').addEventListener('input', upd);
+  ov.addEventListener('change', function (e) { if (e.target && e.target.id === 'hp-replace') { pasteState.replace = e.target.checked; } });
+  pasteState = { items: [], replace: false };
+  updatePaste();
+}
+function updatePaste() {
+  var text = document.getElementById('hp-text').value;
+  var y = +document.getElementById('hp-year').value || serverNow().getFullYear();
+  var res = parseHolidayText(text, y);
+  pasteState.items = res.items;
+  var box = document.getElementById('hp-preview'), btn = document.getElementById('hp-save');
+  if (!text.trim()) { box.innerHTML = ''; btn.disabled = true; btn.textContent = 'Save holidays'; return; }
+  var years = {};
+  res.items.forEach(function (x) { years[x.d.slice(0, 4)] = 1; });
+  var ys = Object.keys(years).sort();
+  var existing = (app.holidays || []).filter(function (x) { return years[x.d.slice(0, 4)]; }).length;
+  var h = '<p style="margin-top:14px" class="strong">' + (res.items.length ? 'Found ' + plural(res.items.length, 'holiday') : 'No dates found yet') + '</p>';
+  if (res.items.length) {
+    h += '<div class="preview"><table><thead><tr><th>Date</th><th>Day</th><th>Occasion</th></tr></thead><tbody>';
+    res.items.forEach(function (x) {
+      var dt = parseIso(x.d), off = (app.S.settings.WorkDays || []).indexOf(dt.getDay()) < 0;
+      h += '<tr><td class="nowrap">' + dt.getDate() + ' ' + MON[dt.getMonth()] + ' ' + dt.getFullYear() + '</td><td>' + DOW[dt.getDay()] + (off ? ' <span class="muted small">(day off)</span>' : '') + '</td><td>' + esc(x.name) + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+  }
+  if (res.skipped.length) h += '<p class="hint" style="margin-top:8px">Skipped ' + plural(res.skipped.length, 'line') + ' without a date: ' + res.skipped.slice(0, 3).map(function (s) { return '&ldquo;' + esc(s.slice(0, 40)) + '&rdquo;'; }).join(', ') + (res.skipped.length > 3 ? '&hellip;' : '') + '</p>';
+  if (existing && res.items.length) h += '<label class="row" style="margin-top:12px;gap:8px;cursor:pointer"><input type="checkbox" id="hp-replace"' + (pasteState.replace ? ' checked' : '') + '> Replace the ' + plural(existing, 'holiday') + ' I already have for ' + ys.join(', ') + '</label>';
+  box.innerHTML = h;
+  btn.disabled = !res.items.length;
+  btn.textContent = res.items.length ? 'Save ' + plural(res.items.length, 'holiday') : 'Save holidays';
+}
+function savePaste() {
+  var items = pasteState.items;
+  if (!items.length) return;
+  var years = {};
+  items.forEach(function (x) { years[+x.d.slice(0, 4)] = 1; });
+  var body = { items: items.map(function (x) { return { d: x.d, name: x.name }; }), replaceYears: pasteState.replace ? Object.keys(years).map(Number) : [] };
+  api('/api/holidays', body).then(function (r) {
+    closeModal();
+    toast('Saved ' + plural(r.added, 'holiday'));
+    app.year = +items[0].d.slice(0, 4);
+    refresh(); loadLeave();
+  }, function (e) { toast(e.message, true); });
+}
+function openAddHoliday() {
+  var y = app.year || serverNow().getFullYear();
+  var d = y === serverNow().getFullYear() ? todayStr() : y + '-01-01';
+  var h = modalHead('Add a holiday') + '<div class="modal-body"><div class="form-grid" style="grid-template-columns:minmax(0,1fr) minmax(0,1.6fr)">' +
+    '<label class="field">Date<input class="input" type="date" id="ha-date" value="' + d + '"></label>' +
+    '<label class="field">Occasion<input class="input" id="ha-name" maxlength="120" placeholder="e.g. Diwali" autofocus></label></div><p class="err-text" id="ha-err"></p></div>' +
+    '<div class="modal-foot"><button class="btn" data-act="close-modal">Cancel</button><button class="btn btn-primary" data-act="hol-add-save">Add holiday</button></div>';
+  openModal(h);
+}
+
+/* ======================= settings ======================= */
+function themePref() { try { return localStorage.getItem('tt-theme') || 'system'; } catch (e) { return 'system'; } }
+function applyTheme(t) {
+  if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+  else document.documentElement.removeAttribute('data-theme');
+}
+function renderSettings() {
+  var S = app.S;
+  if (!S) { main.innerHTML = '<div class="skeleton"></div>'; return; }
+  app.settingsRendered = true;
+  var s = S.settings;
+  var dayBtns = [1, 2, 3, 4, 5, 6, 0].map(function (n) { return '<button type="button" data-act="toggle-day" data-day="' + n + '" aria-pressed="' + (s.WorkDays.indexOf(n) >= 0) + '">' + DOW[n] + '</button>'; }).join('');
+  var away = [0, 5, 10, 15, 20, 30, 45, 60].map(function (n) { return '<option value="' + n + '"' + (n === s.AwayMinutes ? ' selected' : '') + '>' + (n ? n + ' minutes' : 'Never (turn off)') + '</option>'; }).join('');
+  var th = themePref();
+  var h = '<div class="page-head"><div><h2>Settings</h2><p>Changes apply to all days, including past ones.</p></div></div><div class="grid-2"><div class="col">' +
+    '<section class="card pad"><h3>Work hours</h3>' +
+    '<div class="row" style="margin-top:14px;align-items:flex-end"><label class="field">Hours needed per working day<input class="input" type="number" id="st-hours" min="0.5" max="24" step="0.25" value="' + s.DailyHours + '" style="width:140px"></label><span class="hint" id="st-hours-hint" style="padding-bottom:9px">= ' + fmtDur(s.DailyHours * 3600) + '</span></div>' +
+    '<div style="margin-top:16px"><div class="hint" style="font-weight:560;color:var(--text-2);margin-bottom:6px">Working days</div><div class="daypick" id="st-days">' + dayBtns + '</div><p class="hint" style="margin-top:6px">Days not selected are off (no hours needed).</p></div></section>' +
+    '<section class="card pad"><h3>Leave</h3>' +
+    sw('st-autoleave', s.AutoLeave, 'Mark skipped working days as leave', 'A working day with no activity at all counts as leave. You can change any day to &ldquo;Not leave&rdquo;.') + '</section>' +
+    '<section class="card pad"><h3>Appearance</h3><div class="seg" role="group" style="margin-top:12px" id="st-theme">' +
+    [['system', 'Same as Windows'], ['light', 'Light'], ['dark', 'Dark']].map(function (o) { return '<button data-act="theme" data-val="' + o[0] + '" aria-pressed="' + (th === o[0]) + '">' + o[1] + '</button>'; }).join('') + '</div></section>' +
+    '</div><div class="col"><section class="card pad"><h3>Lunch, breaks and time away</h3>' +
+    sw('st-lunch', s.LunchCounts, 'Lunch counts toward my hours', 'Lunch is part of your office time.') +
+    sw('st-breaks', s.BreaksCount, 'Short breaks count toward my hours', 'Usually off: tea or personal breaks are not counted.') +
+    '<label class="field" style="margin:12px 0">Treat me as away after no keyboard or mouse activity for<select class="input" id="st-away">' + away + '</select><span class="hint">With the lid closed there is no activity, so lunch is noticed automatically.</span></label>' +
+    '<p class="hint" style="margin:0 0 6px">In a long call without typing? When you are back, choose &ldquo;I was working&rdquo;.</p>' +
+    sw('st-ask', s.AskOnReturn, 'Ask me what it was when I come back', (location.protocol === 'file:' ? 'A Welcome back question at the top of the Today screen asks whether it was lunch, a break or work.' : 'A Windows pop-up with Lunch / I was working buttons asks what it was.')) + '</section>' +
+    '<section class="card pad"><h3>Away detection &amp; notifications</h3><div class="perms">' +
+    permRow('Notice when I am away', 'Needed to notice lunch with the lid closed.', rt.idle.supported ? rt.idle.perm : 'unsupported', 'idle-allow') +
+    permRow('Notifications', isFile() ? 'Edge does not allow these for a file on your laptop; the Welcome back question shows on the Today screen.' : 'For the &ldquo;Welcome back&rdquo; question.', notifyPerm(), 'notif-allow') + '</div></section>' +
+    '<section class="card pad"><h3>Start automatically</h3><p class="muted" style="margin-top:6px">Opens the tracker by itself every time you sign in to Windows.</p>' +
+    '<div class="row" style="margin-top:12px"><button class="btn btn-sm" data-act="autostart">Show me how</button><button class="btn btn-sm btn-ghost btn-danger" data-act="quit">Stop tracking now</button></div></section>' +
+    '<section class="card pad"><h3>Your data</h3><p class="muted" style="margin-top:6px">Saved inside Microsoft Edge on this laptop &mdash; nothing goes online. Keep a backup in case Edge&rsquo;s data is ever cleared.</p>' +
+    '<div class="row" style="margin-top:12px"><button class="btn btn-sm" data-act="backup-now">Download a backup</button><button class="btn btn-sm" data-act="import-open">Import or restore</button><button class="btn btn-sm" data-act="dl-log">Download time log</button></div>' +
+    sw('st-autobackup', s.AutoBackup, 'Weekly backup to my Downloads folder', rt.lastBackup ? 'Last backup: ' + dayShort(ymd(new Date(rt.lastBackup))) : 'No backup yet') +
+    '<p class="hint" style="margin-top:6px">TrackMyTime version ' + esc(S.v) + ' &middot; made by Nikkhil Deshmukkh</p></section></div></div>' +
+    '<div class="row" style="margin-top:20px;justify-content:flex-end"><span class="muted small" id="st-state"></span><button class="btn" data-act="st-reset">Undo changes</button><button class="btn btn-primary" data-act="st-save" id="st-save" disabled>Save changes</button></div>';
+  main.innerHTML = h;
+  app.settingsDirty = false;
+  main.querySelectorAll('#st-hours,#st-away,input[type=checkbox]').forEach(function (el) { el.addEventListener('input', settingsChanged); el.addEventListener('change', settingsChanged); });
+}
+function sw(id, on, title, sub) {
+  return '<label class="switch"><input type="checkbox" id="' + id + '"' + (on ? ' checked' : '') + '><span class="track" aria-hidden="true"></span><span class="txt"><b>' + title + '</b><span>' + sub + '</span></span></label>';
+}
+function settingsChanged() {
+  app.settingsDirty = true;
+  var b = document.getElementById('st-save'); if (b) b.disabled = false;
+  var hrs = parseFloat(document.getElementById('st-hours').value);
+  var hint = document.getElementById('st-hours-hint');
+  if (hint) hint.innerHTML = hrs > 0 ? '= ' + fmtDur(hrs * 3600) : '';
+  var st = document.getElementById('st-state'); if (st) st.textContent = 'Unsaved changes';
+}
+function saveSettings() {
+  var days = [];
+  main.querySelectorAll('#st-days [aria-pressed="true"]').forEach(function (b) { days.push(+b.dataset.day); });
+  var hrs = parseFloat(document.getElementById('st-hours').value);
+  if (!(hrs >= 0.5 && hrs <= 24)) { toast('Hours per day must be between 0.5 and 24.', true); return; }
+  var body = {
+    DailyHours: hrs, WorkDays: days, AwayMinutes: +document.getElementById('st-away').value,
+    LunchCounts: document.getElementById('st-lunch').checked, BreaksCount: document.getElementById('st-breaks').checked,
+    CallsCount: !!app.S.settings.CallsCount, AskOnReturn: document.getElementById('st-ask').checked, AutoBackup: document.getElementById('st-autobackup').checked,
+    AutoLeave: document.getElementById('st-autoleave').checked
+  };
+  act('/api/settings', body, 'Settings saved').then(function () { renderSettings(); }, function () {});
+}
+
+/* ======================= routing & actions ======================= */
+function viewFromHash() { var v = (location.hash || '#today').slice(1); return ['today', 'reports', 'leave', 'settings'].indexOf(v) >= 0 ? v : 'today'; }
+function setView(v) {
+  if (!rt.owner) return;
+  document.body.classList.remove('fit');
+  if (rt.wizStep) { renderWizard(); return; }
+  if (app.view === 'settings' && v !== 'settings' && app.settingsDirty && !confirm('You have unsaved settings. Leave without saving?')) { location.hash = '#settings'; return; }
+  app.view = v;
+  app.settingsRendered = false;
+  closeMenu();
+  document.querySelectorAll('.tabs a').forEach(function (a) { if (a.dataset.v === v) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+  if (v === 'today') { if (app.S) renderToday(); }
+  else if (v === 'reports') loadReport();
+  else if (v === 'leave') loadLeave();
+  else renderSettings();
+  window.scrollTo(0, 0);
+}
+window.addEventListener('hashchange', function () { setView(viewFromHash()); });
+
+var ACTIONS = {
+  'retry': function () { refresh(); },
+  'break': function (el) {
+    var w = el.dataset.what;
+    act('/api/break', { what: w }, w === 'End' ? 'Welcome back' : (w + ' started'));
+  },
+  'mark': function (el) {
+    closeMenu();
+    var k = el.dataset.kind, word = { Work: 'working time', Lunch: 'lunch', Break: 'a break', Away: 'not working' }[k];
+    act('/api/mark', { from: el.dataset.from, to: el.dataset.to, kind: k }, 'Saved as ' + word);
+  },
+  'menu': function (el) { openKindMenu(el); },
+  'day': function (el) { openDay(el.dataset.date); },
+  'addtime': function (el) { openAddTime(el.dataset.date || todayStr()); },
+  'save-time': function () { saveTime(); },
+  'close-modal': function () { closeModal(); },
+  'seg': function (el) { el.parentNode.querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-pressed', String(b === el)); }); },
+  'daystatus': function (el) {
+    var words = { auto: 'Back to normal', leave: 'Marked as leave', half: 'Marked as half-day leave', work: 'Counted as a working day' };
+    act('/api/day', { date: el.dataset.date, status: el.dataset.status }, words[el.dataset.status]);
+  },
+  'goto-month': function () { app.rep.mode = 'month'; app.rep.anchor = null; location.hash = '#reports'; },
+  'goto-week': function (el) { app.rep.mode = 'week'; app.rep.anchor = parseIso(el.dataset.date); loadReport(); },
+  'rep-mode': function (el) { app.rep.mode = el.dataset.mode; loadReport(); },
+  'rep-step': function (el) {
+    var a = app.rep.anchor || dateOnly(serverNow()), dir = +el.dataset.dir;
+    app.rep.anchor = app.rep.mode === 'week' ? addDays(a, 7 * dir) : new Date(a.getFullYear(), a.getMonth() + dir, 1);
+    loadReport();
+  },
+  'rep-now': function () { app.rep.anchor = null; loadReport(); },
+  'csv': function () { downloadCsv(); },
+  'print': function () { window.print(); },
+  'year': function (el) { app.year += +el.dataset.dir; loadLeave(); },
+  'hol-paste': function () { openPaste(); },
+  'hol-save': function () { savePaste(); },
+  'hol-add': function () { openAddHoliday(); },
+  'hol-add-save': function () {
+    var d = document.getElementById('ha-date').value, n = document.getElementById('ha-name').value.trim();
+    if (!d || !n) { document.getElementById('ha-err').textContent = 'Please enter a date and the occasion.'; return; }
+    api('/api/holidays', { items: [{ d: d, name: n }], replaceYears: [] }).then(function () { closeModal(); toast('Holiday added'); app.year = +d.slice(0, 4); refresh(); loadLeave(); }, function (e) { toast(e.message, true); });
+  },
+  'hol-del': function (el) {
+    api('/api/holidays/delete', { dates: [el.dataset.date] }).then(function () { toast('Holiday removed'); refresh(); loadLeave(); }, function (e) { toast(e.message, true); });
+  },
+  'hol-clear': function () {
+    if (!confirm('Remove all holidays for ' + app.year + '?')) return;
+    api('/api/holidays/delete', { year: app.year, dates: [] }).then(function () { toast('Holidays removed'); refresh(); loadLeave(); }, function (e) { toast(e.message, true); });
+  },
+  'lv-save': function () {
+    var d = document.getElementById('lv-date').value, k = document.querySelector('#lv-kind [aria-pressed="true"]');
+    if (!d) { toast('Please choose a date.', true); return; }
+    act('/api/day', { date: d, status: k ? k.dataset.val : 'leave' }, (k && k.dataset.val === 'half' ? 'Half-day leave' : 'Leave') + ' marked for ' + dayShort(d).replace(/<[^>]+>/g, ''));
+  },
+  'toggle-day': function (el) { el.setAttribute('aria-pressed', String(el.getAttribute('aria-pressed') !== 'true')); settingsChanged(); },
+  'st-save': function () { saveSettings(); },
+  'st-reset': function () { renderSettings(); },
+  'theme': function (el) {
+    var v = el.dataset.val;
+    try { if (v === 'system') localStorage.removeItem('tt-theme'); else localStorage.setItem('tt-theme', v); } catch (e) {}
+    applyTheme(v);
+    el.parentNode.querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-pressed', String(b === el)); });
+  },
+  'idle-allow': function () { askIdle(); },
+  'notif-allow': function () { askNotify(); },
+  'autostart': function () { openAutostart(); },
+  'copy-cmd': function () { copyText(startCmd(false)); },
+  'copy-cmd-alt': function () { copyText(startCmd(true)); },
+  'quit': function () { quitTracking(); },
+  'restart': function () { location.reload(); },
+  'close-window': function () { window.close(); },
+  'backup-now': function () { backupNow(false); },
+  'dl-log': function () { downloadText('TimeLog.csv', T.timelogText(), 'text/csv'); },
+  'import-open': function () { openImport(); },
+  'imp-folder': function () { pickFolder(); },
+  'imp-files': function () { pickFiles(); },
+  'imp-do': function () { var r = doImport(); if (r) { closeModal(); refresh(); setView(app.view); } },
+  'wiz-go': function (el) { setStep(el.dataset.to); },
+  'wiz-fresh': function () { if (!rt.started) startTracking(null); setStep('perms'); },
+  'wiz-import': function () { if (doImport()) setStep('perms'); },
+  'wiz-done': function () { finishSetup(); },
+  'install': function () { doInstall(); }
+};
+document.addEventListener('click', function (e) {
+  var el = e.target.closest ? e.target.closest('[data-act]') : null;
+  if (app.menuOpen && (!el || !el.closest('.menu')) && !(el && el.dataset.act === 'menu')) closeMenu();
+  if (!el) return;
+  var fn = ACTIONS[el.dataset.act];
+  if (fn) { e.preventDefault(); fn(el, e); }
+});
+var resizeTimer = null;
+window.addEventListener('resize', function () {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(function () { if (app.view === 'reports' && app.rep.data) renderReports(false); if (app.view === 'today' && !rt.wizStep && rt.owner) renderToday(); }, 150);
+});
+
+/* ======================= start ======================= */
+document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') refresh(); });
+boot();
+})();
+</script>
+</body>
+</html>
