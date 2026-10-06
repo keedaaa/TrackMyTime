@@ -1,5 +1,5 @@
 /* TrackMyTime by Nikkhil Deshmukkh - lets the app open without internet and handles the pop-up buttons */
-var CACHE = 'trackmytime-2e7c93f658';
+var CACHE = 'trackmytime-b8a6bc4294';
 var FILES = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png'];
 
 self.addEventListener('install', function (e) {

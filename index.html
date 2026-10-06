@@ -157,6 +157,8 @@ textarea.input{width:100%;height:auto;padding:10px 12px;line-height:1.5;resize:v
 .hero-cap{color:var(--text-2);margin-top:6px;font-size:15px}
 .progress{position:relative;height:10px;border-radius:5px;background:var(--surface-3);margin-top:18px;overflow:hidden}
 .progress>span{position:absolute;left:0;top:0;bottom:0;border-radius:5px;background:var(--work);transition:width .4s}
+.progress>i{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--surface);opacity:.9;z-index:1}
+.hero-cap2{color:var(--text-2);margin-top:2px;font-size:13.5px}
 .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:20px}
 .stat{background:var(--surface-2);border-radius:10px;padding:10px 12px}
 .stat .lbl{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text-2);font-weight:560}
@@ -365,6 +367,7 @@ body.fit .big{font-size:clamp(22px,3.6vh,30px)}
 body.fit .tl li{padding:clamp(7px,1.1vh,11px) 0}
 body.fit .stat .val{font-size:clamp(15px,2.2vh,18px)}
 body.fit .hero-cap{margin-top:clamp(4px,0.8vh,6px)}
+body.fit .hero-cap2{margin-top:clamp(0px,0.3vh,2px)}
 body.fit .divider{margin:clamp(8px,1.5vh,16px) 0}
 body.fit .line{margin-top:clamp(4px,0.8vh,8px)}
 body.fit .upcoming{flex:none}
@@ -445,7 +448,7 @@ body.fit .upcoming li{padding:clamp(2px,0.5vh,5px) 0}
 
   var MIN = 60000, HOUR = 3600000;
   var HEADER = 'Date,Time,Event,Note';
-  var VERSION = '1.1';
+  var VERSION = '1.2';
   var GAP = 3 * MIN;                 // a longer silence means the laptop slept or was off
 
   /* ---------------- small helpers ---------------- */
@@ -609,6 +612,12 @@ body.fit .upcoming li{padding:clamp(2px,0.5vh,5px) 0}
     o.AutoLeave = toBool(inp.AutoLeave, true);
     o.AutoBackup = toBool(inp.AutoBackup, true);
     o.LeaveAlert = toBool(inp.LeaveAlert, true);
+    // attendance: at least FullDayHours = full day (needs DailyHours), at least HalfDayHours = half day (needs half), less = no attendance
+    var fd = parseFloat(inp.FullDayHours), hd = parseFloat(inp.HalfDayHours);
+    if (!(fd > 0 && fd <= o.DailyHours)) fd = Math.min(6, o.DailyHours);
+    if (!(hd > 0 && hd <= fd)) hd = Math.min(4, fd);
+    o.FullDayHours = Math.round(fd * 100) / 100;
+    o.HalfDayHours = Math.round(hd * 100) / 100;
     return o;
   }
 
@@ -837,13 +846,36 @@ body.fit .upcoming li{padding:clamp(2px,0.5vh,5px) 0}
     }
     var counted = t.Work + (this.S.LunchCounts ? t.Lunch : 0) + (this.S.BreaksCount ? t.Break : 0);
     var st = this.dayStatusOf(from, blocks.length > 0, today);
-    var r = { day: from, key: dayKey(from), status: st.status, override: st.override, holiday: st.holiday, target: st.target,
-      counted: counted, work: t.Work, lunch: t.Lunch, breaks: t.Break, away: t.Away, diff: counted - st.target,
+    var at = this.attendance(st, counted, from, today);
+    var r = { day: from, key: dayKey(from), status: st.status, override: st.override, holiday: st.holiday, target: at.target, std: st.target, att: at.att,
+      counted: counted, work: t.Work, lunch: t.Lunch, breaks: t.Break, away: t.Away, diff: counted - at.target,
       first: first, last: last, live: live, blocks: blocks };
     if (from < today) this.cache[from] = r;
     return r;
   };
-  function leaveValue(st) { return st === 'leave' || st === 'autoleave' ? 1 : st === 'half' ? 0.5 : 0; }
+  // What a day needs, from the hours actually spent (for today: "if you leave now")
+  P.attendance = function (st, counted, from, today) {
+    var T = this.target(), full = this.S.FullDayHours * HOUR, half = this.S.HalfDayHours * HOUR;
+    switch (st.status) {
+      case 'leave': case 'autoleave': return { att: 'leave', target: 0 };
+      case 'half': return { att: 'half', target: T / 2 };
+      case 'workday': return { att: 'full', target: T };
+      case 'holiday': return { att: 'holiday', target: 0 };
+      case 'weekend': return { att: 'off', target: 0 };
+      case 'work':
+        if (from > today) return { att: 'planned', target: T };
+        if (counted >= full) return { att: 'full', target: T };
+        if (counted >= half) return { att: 'half', target: T / 2 };
+        if (counted > 0 || from === today) return { att: 'absent', target: 0 };
+        return { att: 'full', target: T };                 // no activity and the "no activity = leave" rule is off
+      default: return { att: '', target: 0 };
+    }
+  };
+  function leaveValue(d, today) {
+    if (d.day > today) return 0;
+    if (d.day === today) return d.status === 'leave' ? 1 : d.status === 'half' ? 0.5 : 0;   // today: only what you marked
+    return d.att === 'leave' || d.att === 'absent' ? 1 : d.att === 'half' ? 0.5 : 0;
+  }
 
   P.summary = function (now) {
     var today = dayStart(now), t = this.day(today, now);
@@ -855,14 +887,22 @@ body.fit .upcoming li{padding:clamp(2px,0.5vh,5px) 0}
       if (d.day < today && d.status !== 'before') { prior += d.diff; priorCount++; }
     }
     var dt = new Date(today), ms = new Date(dt.getFullYear(), dt.getMonth(), 1).getTime(), me = new Date(dt.getFullYear(), dt.getMonth() + 1, 1).getTime();
-    var mPrior = 0, mWork = 0, mTarget = 0, mLeaves = 0, mHol = 0;
+    var mPrior = 0, mWork = 0, mTarget = 0, mLeaves = 0, mHol = 0, mLeft = 0, mRemTarget = 0, mFull = 0, mHalf = 0;
     for (var x = ms; x < me; x = addDays(x, 1)) {
       var y = this.day(x, now);
       mTarget += y.target;
-      if (x <= today) { mWork += y.counted; mLeaves += leaveValue(y.status); }
+      if (x <= today) mWork += y.counted;
+      mLeaves += leaveValue(y, today);
       if (y.status === 'holiday') mHol++;
-      if (x < today) mPrior += y.diff;
+      if (x < today) { mPrior += y.diff; if (y.att === 'full') mFull++; else if (y.att === 'half') mHalf++; }
+      if (x > today && y.target > 0) { mLeft++; mRemTarget += y.target; }
     }
+    // month balance if you leave now, and the earliest time you can leave and stay on track
+    var mLive = mPrior + t.diff, need = null, T9 = this.target();
+    if (t.status === 'work' || t.status === 'workday') need = Math.max(this.S.FullDayHours * HOUR, T9 - mPrior);
+    else if (t.status === 'half') need = Math.max(this.S.HalfDayHours * HOUR, T9 / 2 - mPrior);
+    var leaveLeft = need == null ? null : need - t.counted;
+    var avgNeed = mLeft > 0 ? Math.max(0, (mRemTarget - mLive) / mLeft) : null;
     var okey = this.cacheKey + '|' + today;
     if (this.overallKey !== okey) {
       var bal = 0, wk = 0;
@@ -870,8 +910,9 @@ body.fit .upcoming li{padding:clamp(2px,0.5vh,5px) 0}
       this.overall = { balance: bal, worked: wk }; this.overallKey = okey;
     }
     return { today: t, weekStart: ws, week: week, weekWork: wWork, weekTarget: wTarget, prior: prior, priorCount: priorCount,
-      need: (t.target - prior) - t.counted, monthStart: ms, monthPrior: mPrior, monthWork: mWork, monthTarget: mTarget,
-      monthLeaves: mLeaves, monthHolidays: mHol, overall: this.overall };
+      weekNeed: (t.target - prior) - t.counted, monthStart: ms, monthPrior: mPrior, monthWork: mWork, monthTarget: mTarget,
+      monthLeaves: mLeaves, monthHolidays: mHol, overall: this.overall,
+      monthLive: mLive, need: need, leaveLeft: leaveLeft, monthLeft: mLeft, monthAvgNeed: avgNeed, monthFull: mFull, monthHalf: mHalf };
   };
 
   P.live = function (now, today) {
@@ -885,7 +926,7 @@ body.fit .upcoming li{padding:clamp(2px,0.5vh,5px) 0}
 
   /* ---------------- the same JSON the window used before ---------------- */
   function dayData(d, light) {
-    var o = { d: d.key, st: d.status, ov: d.override, hn: d.holiday, tg: secs(d.target), wk: secs(d.counted), w: secs(d.work),
+    var o = { d: d.key, st: d.status, ov: d.override, hn: d.holiday, tg: secs(d.target), std: secs(d.std), att: d.att, wk: secs(d.counted), w: secs(d.work),
       l: secs(d.lunch), b: secs(d.breaks), a: secs(d.away), s: iso(d.first), e: iso(d.last), live: d.live };
     if (!light) o.blocks = d.blocks.map(function (b) { return { k: b.kind, s: iso(b.start), e: iso(b.end), open: b.open }; });
     return o;
@@ -901,9 +942,12 @@ body.fit .upcoming li{padding:clamp(2px,0.5vh,5px) 0}
       live: { status: lv.status, since: iso(lv.since) },
       today: dayData(t, false),
       doneAt: t.target > t.counted ? iso(now + (t.target - t.counted)) : null,
+      leaveAt: sum.leaveLeft != null && sum.leaveLeft > 0 ? iso(now + sum.leaveLeft) : null,
+      leaveLeft: sum.leaveLeft == null ? null : secs(sum.leaveLeft), canLeave: sum.leaveLeft != null && sum.leaveLeft <= 0 && t.counted > 0,
       week: { start: dayKey(sum.weekStart), days: sum.week.map(function (d) { return dayData(d, true); }), worked: secs(sum.weekWork),
-        target: secs(sum.weekTarget), prior: secs(sum.prior), priorCount: sum.priorCount, need: secs(sum.need), leaveAt: sum.need > 0 ? iso(now + sum.need) : null },
-      month: { start: dayKey(sum.monthStart), worked: secs(sum.monthWork), target: secs(sum.monthTarget), prior: secs(sum.monthPrior), leaves: sum.monthLeaves, holidays: sum.monthHolidays },
+        target: secs(sum.weekTarget), prior: secs(sum.prior), priorCount: sum.priorCount, need: secs(sum.weekNeed), leaveAt: sum.weekNeed > 0 ? iso(now + sum.weekNeed) : null },
+      month: { start: dayKey(sum.monthStart), worked: secs(sum.monthWork), target: secs(sum.monthTarget), prior: secs(sum.monthPrior), leaves: sum.monthLeaves, holidays: sum.monthHolidays,
+        live: secs(sum.monthLive), left: sum.monthLeft, avgNeed: sum.monthAvgNeed == null ? null : secs(sum.monthAvgNeed), full: sum.monthFull, half: sum.monthHalf },
       overall: { balance: secs(sum.overall.balance), worked: secs(sum.overall.worked), since: this.startDay == null ? null : iso(this.startDay) },
       pending: pending, nextHoliday: next, upcoming: upcoming, entries: this.events.length
     };
@@ -1474,14 +1518,13 @@ function notify(title, body, sticky, data, tagName) {
 function checkLeaveAlert() {
   if (!T || !rt.owner || !rt.started || !rt.setupDone || rt.wizStep || !T.S.LeaveAlert || !app.S) return;
   var t = app.S.today;
-  if (!(t.tg > 0) || t.wk < t.tg || rt.leaveDone === t.d) return;
+  if (!(t.std > 0) || !app.S.canLeave || rt.leaveDone === t.d) return;
   rt.leaveDone = t.d;
   try { localStorage.setItem('tt-leave', t.d); } catch (e) {}
   if (DB.db) DB.set('leaveDone', t.d);
-  var wk = app.S.week, extra = '';
-  if (wk && wk.target > 0) { var ahead = wk.prior + (t.wk - t.tg); if (Math.abs(ahead) >= 60) extra = ' This week you are ' + (ahead > 0 ? 'ahead by ' : 'behind by ') + fmtDur(Math.abs(ahead)) + '.'; }
-  notify('Time to leave', 'You have done ' + fmtDur(t.wk) + ' today. You can leave now.' + extra, false, null, 'tt-leave');
-  toast('You have done your ' + fmtDur(t.tg) + ' for today. You can leave now.');
+  var bal = app.S.month.live, extra = Math.abs(bal) >= 60 ? ' (' + (bal > 0 ? 'ahead by ' : 'behind by ') + fmtDur(Math.abs(bal)) + ')' : '';
+  notify('Time to leave', 'You have done ' + fmtDur(t.wk) + ' today - ' + attLabel(t.att).toLowerCase() + '. Your month stays on track' + extra + '. You can leave now.', false, null, 'tt-leave');
+  toast('You can leave now - your month stays on track' + extra + '.');
 }
 function closeAwayNote() { if (rt.awayNote) { try { rt.awayNote.close(); } catch (e) {} rt.awayNote = null; } }
 function handleNotices() {
@@ -1774,8 +1817,17 @@ window.addEventListener('pagehide', function () { writeSeen(true); });
 document.addEventListener('freeze', function () { writeSeen(true); });
 document.addEventListener('resume', function () { rt.resumed = true; });
 
+// Installed app window: stretch it to fill the screen when it opens (Edge also remembers a maximised window)
+function fillScreen() {
+  if (!rt.standalone) return;
+  try {
+    var w = screen.availWidth, h = screen.availHeight;
+    if (window.outerWidth < w - 16 || window.outerHeight < h - 16) { window.moveTo(screen.availLeft || 0, screen.availTop || 0); window.resizeTo(w, h); }
+  } catch (e) {}
+}
 function boot() {
   registerSW();
+  fillScreen();
   applyTheme(themePref());
   app.view = viewFromHash();
   document.querySelectorAll('.tabs a').forEach(function (a) { if (a.dataset.v === app.view) a.setAttribute('aria-current', 'page'); });
@@ -2018,20 +2070,20 @@ function heroCard() {
   var h = '<section class="card hero" aria-label="Today">' +
     '<div class="hero-top"><span class="pill"><span class="dot k-' + li.kind + '"></span>' + li.text + sinceTxt + '</span>' +
     '<span class="muted">' + dayLong(t.d) + ' &middot; ' + started + '</span></div>' +
-    '<div class="hero-main"><div class="hero-num">' + fmtDur(t.wk) + (t.tg > 0 ? '<small>of ' + fmtDur(t.tg) + '</small>' : '') + '</div>' +
+    '<div class="hero-main"><div class="hero-num">' + fmtDur(t.wk) + (t.std > 0 ? '<small>of ' + fmtDur(t.std) + '</small>' : '') + '</div>' +
     '<div class="hero-actions">' + btns + '</div></div>';
-  if (t.tg > 0) {
-    var pct = Math.min(100, t.wk / t.tg * 100);
-    h += '<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.round(pct) + '" aria-label="Progress toward today&rsquo;s hours"><span style="width:' + pct.toFixed(1) + '%"></span></div>';
-    if (t.wk < t.tg) {
-      var cond = (li.kind === 'Away' || (li.kind === 'Break' && !counts('Break')) || (li.kind === 'Lunch' && !counts('Lunch'))) ? ' if you&rsquo;re back now' : '';
-      h += '<p class="hero-cap"><span class="strong">' + fmtDur(t.tg - t.wk) + '</span> to go &middot; you&rsquo;ll reach ' + fmtDur(t.tg) + ' at <span class="strong">' + fmtTime(S.doneAt) + '</span>' + cond + '</p>';
-    } else {
-      h += '<p class="hero-cap"><span class="good strong">Target reached</span> &middot; ' + fmtDur(t.wk - t.tg) + ' extra today</p>';
-    }
+  var month = '<span class="strong">' + signedHtml(S.month.live) + '</span> for the month';
+  if (t.std > 0) {
+    var pct = Math.min(100, t.wk / t.std * 100), set = S.settings, ticks = '';
+    if (t.st === 'work') [set.HalfDayHours, set.FullDayHours].forEach(function (hh) { var p = hh * 3600 / t.std * 100; if (p > 0 && p < 100) ticks += '<i style="left:' + p.toFixed(2) + '%" title="' + (hh === set.FullDayHours ? 'Full day' : 'Half day') + ' from ' + fmtDur(hh * 3600) + '"></i>'; });
+    h += '<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.round(pct) + '" aria-label="Progress toward today&rsquo;s hours">' + ticks + '<span style="width:' + pct.toFixed(1) + '%"></span></div>';
+    var cond = (li.kind === 'Away' || (li.kind === 'Break' && !counts('Break')) || (li.kind === 'Lunch' && !counts('Lunch'))) ? ' if you&rsquo;re back now' : '';
+    if (S.canLeave) h += '<p class="hero-cap"><span class="good strong">You can leave now</span> &middot; your month stays on track</p>';
+    else if (S.leaveAt) h += '<p class="hero-cap">You can leave at <span class="strong">' + fmtTime(S.leaveAt) + '</span>' + cond + ' &middot; ' + fmtDur(S.leaveLeft) + ' to go</p>';
+    h += '<p class="hero-cap2">If you leave now: <span class="strong">' + attLabel(t.att) + '</span> &middot; ' + month + '</p>';
   } else {
     var why = t.st === 'holiday' ? 'Holiday' + (t.hn ? ': ' + esc(t.hn) : '') : t.st === 'leave' ? 'You&rsquo;re on leave today' : t.st === 'weekend' ? 'Weekend' : 'No hours needed today';
-    h += '<p class="hero-cap">' + why + '. Anything you work today is extra.</p>';
+    h += '<p class="hero-cap">' + why + '. Anything you work today is extra.</p><p class="hero-cap2">' + month + '</p>';
   }
   h += '<div class="stats">' + statBox('Lunch', t.l, counts('Lunch')) + statBox('Break', t.b, counts('Break')) + statBox('Away', t.a, false) + '</div>';
   var away = S.settings.AwayMinutes, note = '';
@@ -2072,12 +2124,13 @@ function weekCard() {
   var S = app.S, w = S.week, t = S.today;
   var last = addDays(parseIso(w.start), 6);
   var h = '<section class="card"><div class="card-head"><h3>This week</h3><span class="sub">' + rangeLabel(w.start, ymd(last)) + '</span></div><div class="card-body">';
-  h += '<div class="big">' + fmtDur(w.worked) + ' <small>/ ' + fmtDur(w.target) + '</small></div>';
-  if (w.priorCount === 0) h += '<div class="line"><span class="muted">New week &mdash; nothing before today yet.</span></div>';
-  else if (Math.abs(w.prior) < 60) h += '<div class="line"><span class="good strong">Exactly on track</span><span class="muted">Mon&ndash;yesterday</span></div>';
-  else h += '<div class="line"><span class="strong ' + (w.prior < 0 ? 'bad' : 'good') + '">' + (w.prior < 0 ? 'Behind by ' : 'Ahead by ') + fmtDur(Math.abs(w.prior)) + '</span><span class="muted">Mon&ndash;yesterday</span></div>';
-  if (w.leaveAt) h += '<div class="line">Leave at <span class="strong">' + fmtTime(w.leaveAt) + '</span> to stay on track this week.</div>';
-  else if (t.tg > 0 || w.prior < 0) h += '<div class="line good">You&rsquo;re on track for the week &mdash; leave any time.</div>';
+  var planned = 0; w.days.forEach(function (d) { planned += d.d === t.d ? (d.std || 0) : d.tg; });     // today counts as a planned day here
+  h += '<div class="big">' + fmtDur(w.worked) + ' <small>/ ' + fmtDur(planned) + '</small></div>';
+  var c = { full: 0, half: 0, leave: 0 }, any = false;
+  w.days.forEach(function (d) { if (d.d >= t.d) return; if (d.att === 'full') { c.full++; any = true; } else if (d.att === 'half') { c.half++; any = true; } else if (d.att === 'leave' || d.att === 'absent') { c.leave++; any = true; } });
+  if (!any) h += '<div class="line"><span class="muted">New week &mdash; nothing before today yet.</span></div>';
+  else h += '<div class="line"><span>Full days <span class="strong">' + c.full + '</span></span><span>Half days <span class="strong">' + c.half + '</span></span><span>Leave <span class="strong">' + c.leave + '</span></span><span class="muted">Mon&ndash;yesterday</span></div>';
+  h += '<div class="line muted small">The balance that counts is the month&rsquo;s &mdash; see below.</div>';
   h += '<div class="wk-chart"></div>';
   return h + '</div></section>';
 }
@@ -2086,7 +2139,7 @@ function monthCard() {
   var S = app.S, m = S.month, d = parseIso(m.start);
   var h = '<section class="card"><div class="card-head"><h3>' + MONTHS[d.getMonth()] + '</h3><button class="btn btn-ghost btn-sm" data-act="goto-month">Month report ' + ICON.right + '</button></div><div class="card-body"><div class="kv kv4">' +
     '<div><div class="k">Worked so far</div><div class="v">' + fmtDur(m.worked) + '</div></div>' +
-    '<div><div class="k">Ahead / behind</div><div class="v">' + signedHtml(m.prior) + '</div></div>' +
+    '<div><div class="k">Ahead / behind</div><div class="v">' + signedHtml(m.live) + '</div></div>' +
     '<div><div class="k">Leave taken</div><div class="v">' + plural(m.leaves, 'day') + '</div></div>' +
     '<div><div class="k">Holidays</div><div class="v">' + m.holidays + '</div></div></div>';
   var up = S.upcoming || [];
@@ -2094,7 +2147,10 @@ function monthCard() {
   if (up.length) {
     h += '<ul class="upcoming">' + up.map(function (x) { return '<li><span class="strong">' + esc(x.name) + '</span><span class="muted">' + dayShort(x.d) + '</span></li>'; }).join('') + '</ul>';
   } else h += '<p class="muted small" style="margin-top:4px">No holidays added yet &mdash; add them under Leave &amp; holidays.</p>';
-  if (S.overall.since) h += '<div class="line overall"><span class="muted">Overall since ' + dayShort(S.overall.since) + '</span>' + signedHtml(S.overall.balance) + '</div>';
+  var fullMin = S.settings.FullDayHours * 3600, left;
+  if (!m.left) left = 'No working days left this month after today.';
+  else left = m.left + ' working ' + (m.left === 1 ? 'day' : 'days') + ' left &middot; ' + (m.avgNeed <= fullMin ? 'any full day (' + fmtDur(fullMin) + '+) keeps you on track' : 'about <span class="strong">' + fmtDur(m.avgNeed) + '</span> a day to end on track');
+  h += '<div class="line overall"><span class="muted">' + left + '</span></div>';
   return h + '</div></section>';
 }
 
@@ -2122,8 +2178,8 @@ function barChart(days, opts) {
   days.forEach(function (d, i) {
     var cx = padL + band * i + band / 2, dt = parseIso(d.d), future = d.d > today, isToday = d.d === today;
     var tip = '<b>' + dayShort(d.d) + '</b><br>' + (STATUS[d.st] || '') + (d.hn ? ': ' + esc(d.hn) : '') +
-      (future ? '' : '<br>Counted: ' + fmtDur(d.wk)) + (d.tg ? '<br>Target: ' + fmtDur(d.tg) : '') +
-      (!future && d.tg ? '<br>' + (isToday ? 'So far: ' : 'Difference: ') + fmtSigned(d.wk - d.tg) : '');
+      attSuffix(d).replace(' &middot; ', '<br>') + (future ? '' : '<br>Counted: ' + fmtDur(d.wk)) + (d.tg ? '<br>Needed: ' + fmtDur(d.tg) : '') +
+      (!future && (d.tg || d.wk) ? '<br>' + (isToday ? 'If you leave now: ' : 'Difference: ') + fmtSigned(d.wk - d.tg) : '');
     s += '<rect class="hit" data-act="day" data-date="' + d.d + '" data-tip="' + esc(tip) + '" x="' + (padL + band * i + 1).toFixed(1) + '" y="' + padT + '" width="' + Math.max(1, band - 2).toFixed(1) + '" height="' + ph + '" rx="6"/>';
     if (d.wk > 0) {
       var top = y(d.wk), bx = cx - bw / 2, base = padT + ph, r = Math.min(4, (base - top) / 2, bw / 2);
@@ -2133,8 +2189,9 @@ function barChart(days, opts) {
     } else if (!future && (d.st === 'leave' || d.st === 'autoleave' || d.st === 'holiday')) {
       s += '<text pointer-events="none" x="' + cx.toFixed(1) + '" y="' + (padT + ph - 6) + '" text-anchor="middle" style="font-size:10.5px">' + (band > 40 ? (d.st === 'holiday' ? 'Holiday' : 'Leave') : (d.st === 'holiday' ? 'H' : 'L')) + '</text>';
     }
-    if (d.tg > 0) {
-      var ty = y(d.tg).toFixed(1), tw = Math.min(bw / 2 + 5, band / 2 - 3);
+    var tgv = isToday ? (d.std || 0) : d.tg;
+    if (tgv > 0) {
+      var ty = y(tgv).toFixed(1), tw = Math.min(bw / 2 + 5, band / 2 - 3);
       s += '<line pointer-events="none" class="tgt" x1="' + (cx - tw).toFixed(1) + '" x2="' + (cx + tw).toFixed(1) + '" y1="' + ty + '" y2="' + ty + '"/>';
     }
     if (i % every === 0 || isToday) {
@@ -2157,13 +2214,13 @@ function loadDayInto(ov, date, focusEntries) {
     var d = r.days[0];
     var box = ov.querySelector('[data-day]');
     if (!box) return;
-    var sub = (STATUS[d.st] || '') + (d.hn ? ' &middot; ' + esc(d.hn) : '');
+    var sub = (STATUS[d.st] || '') + (d.hn ? ' &middot; ' + esc(d.hn) : '') + attSuffix(d);
     var cur = d.ov || 'auto';
     var future = d.d > todayStr();
     var h = modalHead(dayLong(date), sub) + '<div class="modal-body">';
     h += '<div class="mini-kpis"><div><div class="k">Counted</div><div class="v">' + fmtDur(d.wk) + '</div></div>' +
-      '<div><div class="k">Target</div><div class="v">' + fmtDur(d.tg) + '</div></div>' +
-      '<div><div class="k">' + (d.d === todayStr() ? 'So far' : 'Ahead / behind') + '</div><div class="v">' + (future ? '&ndash;' : signedHtml(d.wk - d.tg)) + '</div></div></div>';
+      '<div><div class="k">Needed</div><div class="v">' + fmtDur(d.tg) + '</div></div>' +
+      '<div><div class="k">' + (d.d === todayStr() ? 'If you leave now' : 'Ahead / behind') + '</div><div class="v">' + (future ? '&ndash;' : signedHtml(d.wk - d.tg)) + '</div></div></div>';
     h += '<div class="row" style="justify-content:space-between;margin-bottom:6px"><h4 style="font-size:14px">Timeline</h4><button class="btn btn-sm" data-act="addtime" data-date="' + d.d + '">' + ICON.plus + 'Add time</button></div>';
     h += timelineHtml(d);
     var ents = route('/api/entries?date=' + d.d);
@@ -2279,10 +2336,10 @@ function summarize(days) {
   days.forEach(function (d) {
     o.target += d.tg;
     if (d.d <= today) { o.worked += d.wk; o.lunch += d.l; o.brk += d.b; o.away += d.a; }
-    if (d.d < today) o.bal += d.wk - d.tg;
+    if (d.d <= today) o.bal += d.wk - d.tg;               // today counts as "if you leave now"
     if (d.d < today && d.wk > 0 && d.tg > 0) { o.workDays++; o.workSec += d.wk; }
-    if (d.d <= today && (d.st === 'leave' || d.st === 'autoleave')) o.leave += 1;
-    if (d.d <= today && d.st === 'half') o.leave += 0.5;
+    if (d.d < today) o.leave += (d.att === 'leave' || d.att === 'absent') ? 1 : d.att === 'half' ? 0.5 : 0;
+    else if (d.d === today) o.leave += d.st === 'leave' ? 1 : d.st === 'half' ? 0.5 : 0;
     if (d.st === 'holiday') o.hol++;
   });
   return o;
@@ -2299,7 +2356,7 @@ function renderReports(loading) {
   var data = app.rep.data;
   if (loading || !data) { main.innerHTML = h + '<div class="skeleton"></div>'; return; }
   var days = data.days, o = summarize(days);
-  var balNote = isCurrent ? 'up to yesterday' : (mode === 'week' ? 'for the week' : 'for the month');
+  var balNote = isCurrent ? 'if you leave now' : (mode === 'week' ? 'for the week' : 'for the month');
   h += '<div class="kpis">' +
     kpi('Worked', fmtDur(o.worked), 'of ' + fmtDur(o.target) + ' target') +
     kpi('Ahead / behind', signedHtml(o.bal), balNote) +
@@ -2313,16 +2370,22 @@ function renderReports(loading) {
   main.innerHTML = h;
 }
 function kpi(k, v, n) { return '<div class="kpi"><div class="k">' + k + '</div><div class="v">' + v + '</div><div class="n">' + n + '</div></div>'; }
-function stText(d) { return (STATUS[d.st] || '') + (d.hn ? ': ' + esc(d.hn) : ''); }
+function stText(d) { return (STATUS[d.st] || '') + (d.hn ? ': ' + esc(d.hn) : '') + attSuffix(d); }
+function attLabel(att) { return { full: 'Full day', half: 'Half day', absent: 'No attendance (counts as leave)', leave: 'Leave', holiday: 'Holiday', off: 'Day off', planned: 'Planned' }[att] || ''; }
+function attSuffix(d) {
+  if ((d.st !== 'work' && d.st !== 'workday') || d.d > todayStr() || !d.att) return '';
+  var w = { full: 'full day', half: 'half day', absent: 'no attendance' }[d.att];
+  return w ? ' &middot; ' + w + (d.d === todayStr() ? ' so far' : '') : '';
+}
 function weekTable(days) {
   var today = todayStr(), tot = { wk: 0, tg: 0, l: 0, b: 0, a: 0, bal: 0 };
-  var h = '<section class="card"><div class="card-head"><h3>Day by day</h3></div><div class="card-body tbl-wrap"><table class="tbl"><thead><tr><th>Day</th><th>Type</th><th>Start</th><th>End</th><th class="r">Lunch</th><th class="r">Breaks</th><th class="r">Away</th><th class="r">Counted</th><th class="r">Target</th><th class="r">Ahead / behind</th></tr></thead><tbody>';
+  var h = '<section class="card"><div class="card-head"><h3>Day by day</h3></div><div class="card-body tbl-wrap"><table class="tbl"><thead><tr><th>Day</th><th>Type</th><th>Start</th><th>End</th><th class="r">Lunch</th><th class="r">Breaks</th><th class="r">Away</th><th class="r">Counted</th><th class="r">Needed</th><th class="r">Ahead / behind</th></tr></thead><tbody>';
   days.forEach(function (d) {
     var future = d.d > today;
     tot.tg += d.tg;
     if (!future) { tot.wk += d.wk; tot.l += d.l; tot.b += d.b; tot.a += d.a; }
-    if (d.d < today) tot.bal += d.wk - d.tg;
-    var diff = future ? '<span class="muted">&ndash;</span>' : d.d === today ? (d.wk >= d.tg ? signedHtml(d.wk - d.tg) : '<span class="muted">' + fmtDur(d.tg - d.wk) + ' to go</span>') : (d.tg || d.wk ? signedHtml(d.wk - d.tg) : '<span class="muted">&ndash;</span>');
+    if (d.d <= today) tot.bal += d.wk - d.tg;
+    var diff = future ? '<span class="muted">&ndash;</span>' : (d.tg || d.wk ? signedHtml(d.wk - d.tg) : '<span class="muted">&ndash;</span>');
     h += '<tr data-act="day" data-date="' + d.d + '"' + (d.d === today ? ' class="is-today"' : '') + '><td class="strong">' + dayShort(d.d) + '</td><td><span class="st">' + stText(d) + '</span></td>' +
       '<td>' + (d.s ? fmtTime(d.s) : '&ndash;') + '</td><td>' + (d.e ? (d.live ? 'now' : fmtTime(d.e)) : '&ndash;') + '</td>' +
       '<td class="r">' + (d.l ? fmtDur(d.l) : '&ndash;') + '</td><td class="r">' + (d.b ? fmtDur(d.b) : '&ndash;') + '</td><td class="r">' + (d.a ? fmtDur(d.a) : '&ndash;') + '</td>' +
@@ -2341,7 +2404,7 @@ function monthCalendar(days) {
     var dt = parseIso(d.d), future = d.d > today, off = d.tg === 0;
     var diff = '';
     if (!future && d.d !== today && (d.tg || d.wk)) { var x = d.wk - d.tg; diff = '<span class="d ' + (Math.abs(x) < 60 ? 'muted' : x < 0 ? 'bad' : 'good') + '">' + fmtSigned(x) + '</span>'; }
-    var stl = d.st === 'work' ? '' : (d.st === 'holiday' ? esc(d.hn || 'Holiday') : (STATUS[d.st] || ''));
+    var stl = d.st === 'work' ? (d.d < today && d.att === 'half' ? 'Half day' : d.d < today && d.att === 'absent' ? 'No attendance' : '') : (d.st === 'holiday' ? esc(d.hn || 'Holiday') : (STATUS[d.st] || ''));
     h += '<button class="c' + (off ? ' off' : '') + (d.d === today ? ' today' : '') + '" data-act="day" data-date="' + d.d + '" aria-label="' + dayLong(d.d) + '">' +
       '<span class="n">' + dt.getDate() + '</span>' + (stl ? '<span class="s" title="' + stl + '">' + stl + '</span>' : '') +
       '<span class="w">' + (d.wk > 0 ? fmtDur(d.wk) : '') + '</span>' + diff + '</button>';
@@ -2354,10 +2417,9 @@ function monthWeeks(days) {
     var ws = ymd(weekStart(parseIso(d.d)));
     if (!cur || cur.ws !== ws) { cur = { ws: ws, a: d.d, b: d.d, wk: 0, tg: 0, bal: 0 }; weeks.push(cur); }
     cur.b = d.d; cur.tg += d.tg;
-    if (d.d <= today) cur.wk += d.wk;
-    if (d.d < today) cur.bal += d.wk - d.tg;
+    if (d.d <= today) { cur.wk += d.wk; cur.bal += d.wk - d.tg; }
   });
-  var h = '<section class="card"><div class="card-head"><h3>Week by week</h3><span class="sub">Days inside this month</span></div><div class="card-body tbl-wrap"><table class="tbl"><thead><tr><th>Week</th><th class="r">Counted</th><th class="r">Target</th><th class="r">Ahead / behind</th></tr></thead><tbody>';
+  var h = '<section class="card"><div class="card-head"><h3>Week by week</h3><span class="sub">Days inside this month</span></div><div class="card-body tbl-wrap"><table class="tbl"><thead><tr><th>Week</th><th class="r">Counted</th><th class="r">Needed</th><th class="r">Ahead / behind</th></tr></thead><tbody>';
   weeks.forEach(function (w) {
     h += '<tr data-act="goto-week" data-date="' + w.a + '"><td class="strong">' + rangeLabel(w.a, w.b) + '</td><td class="r strong">' + (w.a > today ? '<span class="muted">&ndash;</span>' : fmtDur(w.wk)) + '</td><td class="r">' + fmtDur(w.tg) + '</td><td class="r">' + (w.a > today ? '<span class="muted">&ndash;</span>' : signedHtml(w.bal)) + '</td></tr>';
   });
@@ -2464,26 +2526,28 @@ function downloadTimesheet() {
   var c = function (v, s) { return { v: v, s: s || 0 }; };
   var rows = [[c('TrackMyTime timesheet - ' + label, 5)],
     [c('Downloaded ' + dayShort(today) + ' ' + today.slice(0, 4) + ', ' + fmtTimeText(isoOf(new Date())) + '  -  made with TrackMyTime by Nikkhil Deshmukkh', 8)], [],
-    [c('Date', 1), c('Day type', 1), c('Start', 9), c('End', 9), c('Worked', 9), c('Target', 9), c('Ahead / behind', 9), c('Lunch', 9), c('Breaks', 9), c('Away', 9)]];
+    [c('Date', 1), c('Day type', 1), c('Attendance', 1), c('Start', 9), c('End', 9), c('Worked', 9), c('Needed', 9), c('Ahead / behind', 9), c('Lunch', 9), c('Breaks', 9), c('Away', 9)]];
   var tot = { wk: 0, tg: 0, l: 0, b: 0, a: 0, bal: 0 }, leave = 0, hol = 0;
   data.days.forEach(function (d) {
     var past = d.d <= today, done = d.d < today;
     var type = (STATUS[d.st] || d.st) + (d.hn ? ': ' + d.hn : '') + (d.d === today ? ' (today, so far)' : '');
+    var att = d.d > today ? '' : ({ full: 'Full day', half: 'Half day', absent: 'No attendance', leave: 'Leave' }[d.att] || '');
     tot.tg += d.tg;
-    if (past) { tot.wk += d.wk; tot.l += d.l; tot.b += d.b; tot.a += d.a; }
-    if (done) tot.bal += d.wk - d.tg;
-    if (past && (d.st === 'leave' || d.st === 'autoleave')) leave += 1;
-    if (past && d.st === 'half') leave += 0.5;
+    if (past) { tot.wk += d.wk; tot.l += d.l; tot.b += d.b; tot.a += d.a; tot.bal += d.wk - d.tg; }
+    if (done) leave += (d.att === 'leave' || d.att === 'absent') ? 1 : d.att === 'half' ? 0.5 : 0;
+    else if (d.d === today) leave += d.st === 'leave' ? 1 : d.st === 'half' ? 0.5 : 0;
     if (d.st === 'holiday') hol++;
     var hasHours = past && (d.wk > 0 || d.l > 0 || d.b > 0 || d.a > 0);
-    rows.push([c(xlDate(d.d), 2), c(type), d.s && past ? c(xlClock(d.s), 3) : null, d.e && past ? c(xlClock(d.e), 3) : null,
-      past ? c(xlHours(d.wk), 4) : null, c(xlHours(d.tg), 4), done && (d.tg > 0 || d.wk > 0) ? c(signedHm(d.wk - d.tg), 10) : null,
+    rows.push([c(xlDate(d.d), 2), c(type), c(att), d.s && past ? c(xlClock(d.s), 3) : null, d.e && past ? c(xlClock(d.e), 3) : null,
+      past ? c(xlHours(d.wk), 4) : null, c(xlHours(d.tg), 4), past && (d.tg > 0 || d.wk > 0) ? c(signedHm(d.wk - d.tg), 10) : null,
       hasHours ? c(xlHours(d.l), 4) : null, hasHours ? c(xlHours(d.b), 4) : null, hasHours ? c(xlHours(d.a), 4) : null]);
   });
-  rows.push([c('Total', 6), c('', 6), c('', 6), c('', 6), c(xlHours(tot.wk), 7), c(xlHours(tot.tg), 7), c(signedHm(tot.bal), 11), c(xlHours(tot.l), 7), c(xlHours(tot.b), 7), c(xlHours(tot.a), 7)]);
+  rows.push([c('Total', 6), c('', 6), c('', 6), c('', 6), c('', 6), c(xlHours(tot.wk), 7), c(xlHours(tot.tg), 7), c(signedHm(tot.bal), 11), c(xlHours(tot.l), 7), c(xlHours(tot.b), 7), c(xlHours(tot.a), 7)]);
   rows.push([]);
-  rows.push([c('Leave taken: ' + leave + (leave === 1 ? ' day' : ' days') + '   Holidays: ' + hol + '   Ahead / behind counts finished days only. Lunch ' + (counts('Lunch') ? 'is' : 'is not') + ' counted in Worked; breaks ' + (counts('Break') ? 'are' : 'are not') + '.', 8)]);
-  var blob = xlsxBlob(rows, [18, 30, 11, 11, 10, 10, 15, 10, 10, 10], 4);
+  var st0 = app.S.settings;
+  rows.push([c('Leave taken: ' + leave + (leave === 1 ? ' day' : ' days') + '   Holidays: ' + hol + '   Lunch ' + (counts('Lunch') ? 'is' : 'is not') + ' counted in Worked; breaks ' + (counts('Break') ? 'are' : 'are not') + '. Today counts as if you leave now.', 8)]);
+  rows.push([c('Rules: ' + fmtDur(st0.FullDayHours * 3600) + ' or more = full day (needs ' + fmtDur(st0.DailyHours * 3600) + '); ' + fmtDur(st0.HalfDayHours * 3600) + ' to ' + fmtDur(st0.FullDayHours * 3600) + ' = half day (needs ' + fmtDur(st0.DailyHours * 1800) + '); less = no attendance (counts as leave, all time is extra). The month balance is what counts.', 8)]);
+  var blob = xlsxBlob(rows, [18, 30, 15, 11, 11, 10, 10, 15, 10, 10, 10], 4);
   var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'TrackMyTime timesheet ' + (mode === 'month' ? MONTHS[r[0].getMonth()] + ' ' + r[0].getFullYear() : ymd(r[0]) + ' to ' + ymd(r[1])) + '.xlsx';
@@ -2689,6 +2753,9 @@ function renderSettings() {
   var h = '<div class="page-head"><div><h2>Settings</h2><p>Changes apply to all days, including past ones.</p></div></div><div class="grid-2"><div class="col">' +
     '<section class="card pad"><h3>Work hours</h3>' +
     '<div class="row" style="margin-top:14px;align-items:flex-end"><label class="field">Hours needed per working day<input class="input" type="number" id="st-hours" min="0.5" max="24" step="0.25" value="' + s.DailyHours + '" style="width:140px"></label><span class="hint" id="st-hours-hint" style="padding-bottom:9px">= ' + fmtDur(s.DailyHours * 3600) + '</span></div>' +
+    '<div class="row" style="margin-top:12px;align-items:flex-end;gap:16px"><label class="field">Full day from (hours)<input class="input" type="number" id="st-full" min="0.5" max="24" step="0.25" value="' + s.FullDayHours + '" style="width:120px"></label>' +
+    '<label class="field">Half day from (hours)<input class="input" type="number" id="st-half" min="0.25" max="24" step="0.25" value="' + s.HalfDayHours + '" style="width:120px"></label></div>' +
+    '<p class="hint" style="margin-top:6px">A full day needs all your hours; a half day needs half; less than a half day is no attendance (counts as leave) and every minute is extra. What counts is the month&rsquo;s total.</p>' +
     '<div style="margin-top:16px"><div class="hint" style="font-weight:560;color:var(--text-2);margin-bottom:6px">Working days</div><div class="daypick" id="st-days">' + dayBtns + '</div><p class="hint" style="margin-top:6px">Days not selected are off (no hours needed).</p></div></section>' +
     '<section class="card pad"><h3>Leave</h3>' +
     sw('st-autoleave', s.AutoLeave, 'Mark skipped working days as leave', 'A working day with no activity at all counts as leave. You can change any day to &ldquo;Not leave&rdquo;.') + '</section>' +
@@ -2699,7 +2766,7 @@ function renderSettings() {
     sw('st-breaks', s.BreaksCount, 'Short breaks count toward my hours', 'Usually off: tea or personal breaks are not counted.') +
     '<label class="field" style="margin:12px 0">Treat me as away after no keyboard or mouse activity for<select class="input" id="st-away">' + away + '</select><span class="hint">With the lid closed there is no activity, so lunch is noticed automatically.</span></label>' +
     '<p class="hint" style="margin:0 0 6px">In a long call without typing? When you are back, choose &ldquo;I was working&rdquo;.</p>' +
-    sw('st-leavealert', s.LeaveAlert, 'Tell me when I can leave', 'A pop-up once a day when you reach your ' + hoursLabel() + '.') +
+    sw('st-leavealert', s.LeaveAlert, 'Tell me when I can leave', 'A pop-up once a day when you can leave and still be on track for the month.') +
     sw('st-ask', s.AskOnReturn, 'Ask me what it was when I come back', (location.protocol === 'file:' ? 'A Welcome back question at the top of the Today screen asks whether it was lunch, a break or work.' : 'A Windows pop-up with Lunch / I was working buttons asks what it was.')) + '</section>' +
     '<section class="card pad"><h3>Away detection &amp; notifications</h3><div class="perms">' +
     permRow('Notice when I am away', 'Needed to notice lunch with the lid closed.', rt.idle.supported ? rt.idle.perm : 'unsupported', 'idle-allow') +
@@ -2713,7 +2780,7 @@ function renderSettings() {
     '<div class="row" style="margin-top:20px;justify-content:flex-end"><span class="muted small" id="st-state"></span><button class="btn" data-act="st-reset">Undo changes</button><button class="btn btn-primary" data-act="st-save" id="st-save" disabled>Save changes</button></div>';
   main.innerHTML = h;
   app.settingsDirty = false;
-  main.querySelectorAll('#st-hours,#st-away,input[type=checkbox]').forEach(function (el) { el.addEventListener('input', settingsChanged); el.addEventListener('change', settingsChanged); });
+  main.querySelectorAll('#st-hours,#st-full,#st-half,#st-away,input[type=checkbox]').forEach(function (el) { el.addEventListener('input', settingsChanged); el.addEventListener('change', settingsChanged); });
 }
 function sw(id, on, title, sub) {
   return '<label class="switch"><input type="checkbox" id="' + id + '"' + (on ? ' checked' : '') + '><span class="track" aria-hidden="true"></span><span class="txt"><b>' + title + '</b><span>' + sub + '</span></span></label>';
@@ -2731,8 +2798,11 @@ function saveSettings() {
   main.querySelectorAll('#st-days [aria-pressed="true"]').forEach(function (b) { days.push(+b.dataset.day); });
   var hrs = parseFloat(document.getElementById('st-hours').value);
   if (!(hrs >= 0.5 && hrs <= 24)) { toast('Hours per day must be between 0.5 and 24.', true); return; }
+  var fd = parseFloat(document.getElementById('st-full').value), hd = parseFloat(document.getElementById('st-half').value);
+  if (!(fd > 0 && fd <= hrs)) { toast('&ldquo;Full day from&rdquo; must be more than 0 and not more than the hours per day.'.replace(/&[lr]dquo;/g, '"'), true); return; }
+  if (!(hd > 0 && hd <= fd)) { toast('"Half day from" must be more than 0 and not more than "Full day from".', true); return; }
   var body = {
-    DailyHours: hrs, WorkDays: days, AwayMinutes: +document.getElementById('st-away').value,
+    DailyHours: hrs, WorkDays: days, AwayMinutes: +document.getElementById('st-away').value, FullDayHours: fd, HalfDayHours: hd,
     LunchCounts: document.getElementById('st-lunch').checked, BreaksCount: document.getElementById('st-breaks').checked,
     CallsCount: !!app.S.settings.CallsCount, AskOnReturn: document.getElementById('st-ask').checked, AutoBackup: document.getElementById('st-autobackup').checked,
     AutoLeave: document.getElementById('st-autoleave').checked, LeaveAlert: document.getElementById('st-leavealert').checked
