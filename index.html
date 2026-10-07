@@ -448,7 +448,7 @@ body.fit .upcoming li{padding:clamp(2px,0.5vh,5px) 0}
 
   var MIN = 60000, HOUR = 3600000;
   var HEADER = 'Date,Time,Event,Note';
-  var VERSION = '1.2';
+  var VERSION = '1.3';
   var GAP = 3 * MIN;                 // a longer silence means the laptop slept or was off
 
   /* ---------------- small helpers ---------------- */
@@ -618,6 +618,9 @@ body.fit .upcoming li{padding:clamp(2px,0.5vh,5px) 0}
     if (!(hd > 0 && hd <= fd)) hd = Math.min(4, fd);
     o.FullDayHours = Math.round(fd * 100) / 100;
     o.HalfDayHours = Math.round(hd * 100) / 100;
+    // the app opens a few minutes after the power button: count this much before the first start of the day
+    var su = parseInt(inp.StartupMinutes, 10);
+    o.StartupMinutes = isNaN(su) || su < 0 || su > 30 ? 5 : su;
     return o;
   }
 
@@ -732,6 +735,31 @@ body.fit .upcoming li{padding:clamp(2px,0.5vh,5px) 0}
     var u = 'until ' + (dayKey(b) === dayKey(a) ? hms(b) : dayKey(b) + ' ' + hms(b));
     if (note) u += ' - ' + String(note).replace(/[,\r\n]/g, ' ').trim();
     this.addEvent(a, MARK_EVENT[kind], u);
+  };
+
+  /* ---------------- when the day started (first "Laptop on"), and changing it ---------------- */
+  P.startInfo = function (dayMs) {
+    var from = dayStart(dayMs), to = addDays(from, 1);
+    var evs = this.events.filter(function (e) { return e.when >= from && e.when < to && e.event !== 'Leave day' && e.event !== 'Half day leave' && e.event !== 'Working day' && e.event !== 'Day reset'; });
+    if (!evs.length || evs[0].event !== 'Laptop on') return null;
+    var f = evs[0], nx = null;
+    for (var i = 1; i < evs.length; i++) if (evs[i].when > f.when) { nx = evs[i]; break; }
+    var m = /counted (\d+) min early/.exec(f.note || '');
+    return { id: f.line - 1, text: this.lines[f.line - 1], at: f.when, early: m ? +m[1] : 0, limit: nx ? nx.when : null };
+  };
+  P.setStartTime = function (id, text, when, now) {
+    var i = this.lines[id] === text ? id : this.lines.indexOf(text);
+    if (i < 1) throw new Error('That has changed in the meantime. Please look again.');
+    var p = splitLine(this.lines[i]), old = parseWhen(p[0], p[1]);
+    if (eventName(p[2]) !== 'Laptop on' || old == null) throw new Error('Only the start of the day can be changed here.');
+    when = wholeSec(when);
+    if (!(when > 0) || dayKey(when) !== dayKey(old)) throw new Error('Please pick a time on the same day.');
+    if (now != null && when > now) throw new Error('That time is later than now. Please check the hour and AM / PM.');
+    var inf = this.startInfo(old);
+    if (inf && inf.limit != null && when >= inf.limit) throw new Error('That is after the next thing recorded that day (' + clock(inf.limit) + '). Please pick an earlier time.');
+    this.lines[i] = dayKey(when) + ',' + hms(when) + ',Laptop on,set by you';
+    this.reload();
+    this.changed('log');
   };
 
   /* ---------------- entries you added or changed (lunch / break / work / not working) ---------------- */
@@ -1043,7 +1071,14 @@ body.fit .upcoming li{padding:clamp(2px,0.5vh,5px) 0}
     var after = dayStart(now);
     if (lastState != null) { after = lastState; if (seen && seen.seen > after) after = seen.seen; }
     this.lastTick = now; this.lastActivity = now; this.activityFloor = now; this.awayOpen = false; this.awayStart = null;
-    var onAt = now;
+    var onAt = now, onNote = 'auto - tracker started';
+    var firstToday = lastState == null || dayKey(lastState) !== dayKey(now);
+    if (firstToday && this.S.StartupMinutes > 0) {                       // first start of the day: add Windows start-up time
+      onAt = Math.max(dayStart(now), wholeSec(now - this.S.StartupMinutes * MIN));
+      if (this.isOn && seen && seen.seen > onAt && seen.seen <= now) onAt = wholeSec(seen.seen);
+    }
+    var earlyMin = Math.round((now - onAt) / MIN);
+    if (earlyMin > 0) onNote = 'auto - tracker started (counted ' + earlyMin + ' min early for Windows start-up)';
     if (this.isOn) {
       if (seen && now - seen.seen < 3 * MIN) {
         if (seen.activity != null && seen.activity <= now) this.lastActivity = this.activityFloor = seen.activity;
@@ -1061,11 +1096,11 @@ body.fit .upcoming li{padding:clamp(2px,0.5vh,5px) 0}
       } else {
         if (this.pause != null) this.addEvent(offAt, this.pause + ' end', 'auto - laptop was off');
         this.addEvent(offAt, 'Laptop off', 'auto - last seen running');
-        this.addEvent(onAt, 'Laptop on', 'auto - tracker started');
+        this.addEvent(Math.max(onAt, offAt), 'Laptop on', onNote);
         if (dayKey(offAt) === dayKey(onAt)) this.promptNotice(offAt, onAt, 'off');
       }
     } else {
-      this.addEvent(onAt, 'Laptop on', 'auto - tracker started');
+      this.addEvent(onAt, 'Laptop on', onNote);
       if (lastState != null && dayKey(lastState) === dayKey(onAt)) this.promptNotice(lastState, onAt, 'off');
     }
     return 'started';
@@ -1249,6 +1284,10 @@ function route(path, body) {
         return { id: e.id, text: e.text, k: e.kind, s: TTEngine.iso(e.from), e: TTEngine.iso(e.to), note: e.note, future: e.future };
       });
     case '/api/entry/delete': T.removeEntry(body.id, body.text); break;
+    case '/api/startinfo':
+      var si = T.startInfo(parseIsoMs(q.get('date')));
+      return si ? { id: si.id, text: si.text, at: TTEngine.iso(si.at), early: si.early, limit: si.limit == null ? null : TTEngine.iso(si.limit) } : null;
+    case '/api/start': T.setStartTime(body.id, body.text, parseIsoMs(body.at), now); break;
     case '/api/entry/edit': T.editEntry(body.id, body.text, parseIsoMs(body.from), parseIsoMs(body.to), body.kind, body.note || '', now); closeAwayNote(); break;
     case '/api/day': T.setDayStatus(parseIsoMs(body.date), body.status); break;
     case '/api/settings': T.saveSettings(Object.assign({}, T.S, body)); startIdle(); break;
@@ -1258,7 +1297,7 @@ function route(path, body) {
   return T.stateData(Date.now());
 }
 function api(path, body) { return new Promise(function (ok, bad) { try { ok(route(path, body)); } catch (e) { bad(e); } }); }
-var UNDOABLE = { '/api/mark': 1, '/api/day': 1, '/api/break': 1, '/api/entry/delete': 1, '/api/entry/edit': 1 };
+var UNDOABLE = { '/api/mark': 1, '/api/day': 1, '/api/break': 1, '/api/entry/delete': 1, '/api/entry/edit': 1, '/api/start': 1 };
 function act(path, body, okMsg) {
   var before = (T && UNDOABLE[path]) ? T.lines.slice() : null;
   return api(path, body).then(function (st) {
@@ -2033,6 +2072,24 @@ function drawWeekChart() {
   slot.innerHTML = barChart(app.S.week.days, { width: w, height: h, compact: true });
 }
 
+function startInfo(date) { try { return route('/api/startinfo?date=' + date); } catch (e) { return null; } }
+function openStartEdit(date) {
+  var si = startInfo(date); if (!si) return;
+  app.startEdit = { si: si, date: date };
+  var opened = new Date(parseIso(si.at).getTime() + si.early * 60000);
+  var h = modalHead('When did you turn on your laptop?', dayLong(date)) + '<div class="modal-body">' +
+    '<label class="field">The day started at<input class="input" type="time" id="se-time" value="' + hhmm(si.at) + '" style="width:200px"></label>' +
+    '<p class="hint" style="margin-top:10px">' + (si.early ? 'TrackMyTime opened at ' + fmtTime(isoOf(opened)) + ' and added ' + si.early + ' minutes for Windows start-up.' : 'This is when TrackMyTime first started that day.') +
+    ' Pick the time you pressed the power button' + (si.limit ? ' (before ' + fmtTime(si.limit) + ')' : '') + '. To change the minutes added every morning, go to Settings.</p><p class="err-text" id="se-err"></p></div>' +
+    '<div class="modal-foot"><button class="btn" data-act="close-modal">Cancel</button><button class="btn btn-primary" data-act="start-save">Save</button></div>';
+  openModal(h);
+}
+function saveStart() {
+  var st = app.startEdit, v = document.getElementById('se-time').value, err = document.getElementById('se-err');
+  if (!st || !v) { err.textContent = 'Please enter a time.'; return; }
+  var at = parseIso(st.date + 'T' + v + ':00');
+  act('/api/start', { id: st.si.id, text: st.si.text, at: isoOf(at) }, 'Day start changed to ' + fmtTimeText(isoOf(at))).then(function () { app.startEdit = null; closeModal(); }, function (e) { err.textContent = e.message; });
+}
 function todayEntries() { try { return route('/api/entries?date=' + app.S.today.d); } catch (e) { return []; } }
 function futureBanner(ents) {
   var f = ents.filter(function (e) { return e.future; });
@@ -2062,14 +2119,16 @@ function markButtons(from, to, big) {
 function heroCard() {
   var S = app.S, t = S.today, li = liveInfo();
   var sinceTxt = li.since && li.kind !== 'Off' ? ' <span class="muted">since ' + fmtTime(li.since) + '</span>' : '';
-  var started = t.s ? 'Started ' + fmtTime(t.s) : 'Not started yet';
+  var si = startInfo(t.d);
+  var started = t.s ? 'Started ' + fmtTime(t.s) + (si && si.early ? ' <span class="muted" title="Includes ' + si.early + ' minutes for Windows start-up">(+' + si.early + ' min start-up)</span>' : '') +
+    (si ? ' &middot; <button class="linkbtn" data-act="start-edit" data-date="' + t.d + '">Change</button>' : '') : 'Not started yet';
   var st = S.live.status, btns = '';
   if (st === 'lunch') btns = '<button class="btn btn-primary btn-lg" data-act="break" data-what="End">End lunch</button><button class="btn btn-lg" data-act="break" data-what="Break">Switch to break</button>';
   else if (st === 'break') btns = '<button class="btn btn-primary btn-lg" data-act="break" data-what="End">End break</button><button class="btn btn-lg" data-act="break" data-what="Lunch">Switch to lunch</button>';
   else btns = '<button class="btn btn-primary btn-lg" data-act="break" data-what="Lunch">Start lunch</button><button class="btn btn-lg" data-act="break" data-what="Break">Start break</button>';
   var h = '<section class="card hero" aria-label="Today">' +
     '<div class="hero-top"><span class="pill"><span class="dot k-' + li.kind + '"></span>' + li.text + sinceTxt + '</span>' +
-    '<span class="muted">' + dayLong(t.d) + ' &middot; ' + started + '</span></div>' +
+    '<span class="muted">' + (si ? dayShort(t.d) : dayLong(t.d)) + ' &middot; ' + started + '</span></div>' +
     '<div class="hero-main"><div class="hero-num">' + fmtDur(t.wk) + (t.std > 0 ? '<small>of ' + fmtDur(t.std) + '</small>' : '') + '</div>' +
     '<div class="hero-actions">' + btns + '</div></div>';
   var month = '<span class="strong">' + signedHtml(S.month.live) + '</span> for the month';
@@ -2221,6 +2280,8 @@ function loadDayInto(ov, date, focusEntries) {
     h += '<div class="mini-kpis"><div><div class="k">Counted</div><div class="v">' + fmtDur(d.wk) + '</div></div>' +
       '<div><div class="k">Needed</div><div class="v">' + fmtDur(d.tg) + '</div></div>' +
       '<div><div class="k">' + (d.d === todayStr() ? 'If you leave now' : 'Ahead / behind') + '</div><div class="v">' + (future ? '&ndash;' : signedHtml(d.wk - d.tg)) + '</div></div></div>';
+    var dsi = startInfo(d.d);
+    if (dsi) h += '<p class="hint" style="margin:-4px 0 12px">Day started at <span class="strong">' + fmtTime(dsi.at) + '</span>' + (dsi.early ? ' (includes ' + dsi.early + ' min for Windows start-up)' : '') + ' &middot; <button class="linkbtn" data-act="start-edit" data-date="' + d.d + '">Change</button></p>';
     h += '<div class="row" style="justify-content:space-between;margin-bottom:6px"><h4 style="font-size:14px">Timeline</h4><button class="btn btn-sm" data-act="addtime" data-date="' + d.d + '">' + ICON.plus + 'Add time</button></div>';
     h += timelineHtml(d);
     var ents = route('/api/entries?date=' + d.d);
@@ -2772,6 +2833,9 @@ function renderSettings() {
     permRow('Notice when I am away', 'Needed to notice lunch with the lid closed.', rt.idle.supported ? rt.idle.perm : 'unsupported', 'idle-allow') +
     permRow('Notifications', isFile() ? 'Edge does not allow these for a file on your laptop; the Welcome back question shows on the Today screen.' : 'For the &ldquo;Welcome back&rdquo; question.', notifyPerm(), 'notif-allow') + '</div></section>' +
     '<section class="card pad"><h3>Start automatically</h3><p class="muted" style="margin-top:6px">Opens the tracker by itself every time you sign in to Windows.</p>' +
+    '<label class="field" style="margin-top:12px">Windows start-up time to add each morning<select class="input" id="st-startup" style="width:200px">' +
+    [0, 2, 3, 5, 7, 10, 15].map(function (n) { return '<option value="' + n + '"' + (n === s.StartupMinutes ? ' selected' : '') + '>' + (n ? n + ' minutes' : 'None') + '</option>'; }).join('') +
+    '</select><span class="hint">TrackMyTime opens a few minutes after you press the power button. This much time is added before the first start of each day.</span></label>' +
     '<div class="row" style="margin-top:12px"><button class="btn btn-sm" data-act="autostart">Show me how</button><button class="btn btn-sm btn-ghost btn-danger" data-act="quit">Stop tracking now</button></div></section>' +
     '<section class="card pad"><h3>Your data</h3><p class="muted" style="margin-top:6px">Saved inside Microsoft Edge on this laptop &mdash; nothing goes online. Keep a backup in case Edge&rsquo;s data is ever cleared.</p>' +
     '<div class="row" style="margin-top:12px"><button class="btn btn-sm" data-act="backup-now">Download a backup</button><button class="btn btn-sm" data-act="import-open">Import or restore</button><button class="btn btn-sm" data-act="dl-log">Download time log</button></div>' +
@@ -2780,7 +2844,7 @@ function renderSettings() {
     '<div class="row" style="margin-top:20px;justify-content:flex-end"><span class="muted small" id="st-state"></span><button class="btn" data-act="st-reset">Undo changes</button><button class="btn btn-primary" data-act="st-save" id="st-save" disabled>Save changes</button></div>';
   main.innerHTML = h;
   app.settingsDirty = false;
-  main.querySelectorAll('#st-hours,#st-full,#st-half,#st-away,input[type=checkbox]').forEach(function (el) { el.addEventListener('input', settingsChanged); el.addEventListener('change', settingsChanged); });
+  main.querySelectorAll('#st-hours,#st-full,#st-half,#st-away,#st-startup,input[type=checkbox]').forEach(function (el) { el.addEventListener('input', settingsChanged); el.addEventListener('change', settingsChanged); });
 }
 function sw(id, on, title, sub) {
   return '<label class="switch"><input type="checkbox" id="' + id + '"' + (on ? ' checked' : '') + '><span class="track" aria-hidden="true"></span><span class="txt"><b>' + title + '</b><span>' + sub + '</span></span></label>';
@@ -2802,7 +2866,7 @@ function saveSettings() {
   if (!(fd > 0 && fd <= hrs)) { toast('&ldquo;Full day from&rdquo; must be more than 0 and not more than the hours per day.'.replace(/&[lr]dquo;/g, '"'), true); return; }
   if (!(hd > 0 && hd <= fd)) { toast('"Half day from" must be more than 0 and not more than "Full day from".', true); return; }
   var body = {
-    DailyHours: hrs, WorkDays: days, AwayMinutes: +document.getElementById('st-away').value, FullDayHours: fd, HalfDayHours: hd,
+    DailyHours: hrs, WorkDays: days, AwayMinutes: +document.getElementById('st-away').value, FullDayHours: fd, HalfDayHours: hd, StartupMinutes: +document.getElementById('st-startup').value,
     LunchCounts: document.getElementById('st-lunch').checked, BreaksCount: document.getElementById('st-breaks').checked,
     CallsCount: !!app.S.settings.CallsCount, AskOnReturn: document.getElementById('st-ask').checked, AutoBackup: document.getElementById('st-autobackup').checked,
     AutoLeave: document.getElementById('st-autoleave').checked, LeaveAlert: document.getElementById('st-leavealert').checked
@@ -2844,6 +2908,8 @@ var ACTIONS = {
   'day': function (el) { openDay(el.dataset.date, el.dataset.focus === 'entries'); },
   'addtime': function (el) { openAddTime(el.dataset.date || todayStr()); },
   'save-time': function () { saveTime(); },
+  'start-edit': function (el) { openStartEdit(el.dataset.date); },
+  'start-save': function () { saveStart(); },
   'undo': function () { var f = app.undo; hideToast(); if (f) f(); },
   'ent-edit': function (el) { var e = (app.ents || [])[+el.dataset.i]; if (e) openAddTime(e.s.slice(0, 10), e); },
   'ent-del': function (el) { deleteEntry((app.ents || [])[+el.dataset.i]); },
